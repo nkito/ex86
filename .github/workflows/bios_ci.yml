@@ -1,0 +1,28 @@
+name: BIOS CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'bios/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'bios/**'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: apt setup
+      run: sudo add-apt-repository ppa:tkchia/build-ia16
+    - name: apt update
+      run: sudo apt update
+    - name: apt install
+      run: sudo apt-get install gcc-ia16-elf
+    - name: make
+      run: cd bios; make
