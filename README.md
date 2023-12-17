@@ -1,3 +1,5 @@
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/nkito/ex86/c-cpp.yml?label=ci-emu-build&logo=github&style=flat-square)](https://github.com/nkito/ex86/actions?workflow=c-cpp)
+
 # ex86 - a x86 emulator
 
 It is a personal project to understand real processors in detail. Please use it at your own risk.
