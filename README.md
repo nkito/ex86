@@ -1,4 +1,5 @@
-[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/nkito/ex86/c-cpp.yml?label=ci-emu-build&logo=github&style=flat-square)](https://github.com/nkito/ex86/actions?workflow=c-cpp)
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/nkito/ex86/c-cpp.yml?label=ci:emu-build&logo=github&style=flat-square)](https://github.com/nkito/ex86/actions?workflow=c-cpp)
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/nkito/ex86/bios_ci.yml?label=ci:BIOS-build&logo=github&style=flat-square)](https://github.com/nkito/ex86/actions?workflow=bios_ci)
 
 # ex86 - a x86 emulator
 
@@ -28,7 +29,7 @@ $ make
 ## Usage
 
 The command ex86 outputs the usage when no arguments are specified. 
-At least, a BIOS file or a monitor file and its load address are necessary to boot up.
+At least, a BIOS file or a raw binary file of a monitor program and its load address are necessary to boot up.
 
 The emulator boots up with using the BIOS by the following command line:
 ```
