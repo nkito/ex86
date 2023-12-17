@@ -1,5 +1,5 @@
-[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/nkito/ex86/c-cpp.yml?label=ci:emu-build&logo=github&style=flat-square)](https://github.com/nkito/ex86/actions?workflow=c-cpp)
-[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/nkito/ex86/bios_ci.yml?label=ci:BIOS-build&logo=github&style=flat-square)](https://github.com/nkito/ex86/actions?workflow=bios_ci)
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/nkito/ex86/c-cpp.yml?label=ci:emu-build&logo=github&style=flat-square)](https://github.com/nkito/ex86/actions/workflows/c-cpp.yml)
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/nkito/ex86/bios_ci.yml?label=ci:BIOS-build&logo=github&style=flat-square)](https://github.com/nkito/ex86/actions/workflows/bios_ci.yml)
 
 # ex86 - a x86 emulator
 
