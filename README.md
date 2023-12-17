@@ -25,10 +25,10 @@ $ make
 
 ## Usage
 
-The command ex86 outputs the usame when no arguments are specified. 
+The command ex86 outputs the usage when no arguments are specified. 
 At least, a BIOS file or a monitor file and its load address are necessary to boot up.
 
-The emulator boots up with the BIOS by the following command line:
+The emulator boots up with using the BIOS by the following command line:
 ```
 ./ex86 -l f0000 bios/bios.bin -386
 ```
