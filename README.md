@@ -5,6 +5,7 @@ It is a personal project to understand real processors in detail. Please use it 
 ## Description
 
 It has 8086, 80186, and 80386 modes. Compatibility of 80386 is not 100% but Linux and 32-bit DOS apps run on it.
+An original BIOS suited to the emulator is available.
 
 ## Build
 
@@ -12,7 +13,9 @@ It has 8086, 80186, and 80386 modes. Compatibility of 80386 is not 100% but Linu
 $ make
 ```
 
-[build-ia16](https://gitlab.com/tkchia/build-ia16/)  is necessary to buld BIOS. Packages for Ununtu are available in [this page](https://launchpad.net/~tkchia/+archive/ubuntu/build-ia16/).
+A prebuild BIOS file is available in this repository, i.e., bios/bios.bin. Usually, a build process for BIOS codes is not necessary.
+If rebuild is necessary for reasons such as customizing BIOS, 
+[build-ia16](https://gitlab.com/tkchia/build-ia16/)  is necessary as a tool chain. Packages for Ununtu are available in [this page](https://launchpad.net/~tkchia/+archive/ubuntu/build-ia16/).
 
 ```
 $ cd bios
