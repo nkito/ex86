@@ -250,7 +250,7 @@ int main(int argc, char *argv[]){
 
 	tcgetattr(0, &save_settings);
 	settings = save_settings;
-	settings.c_lflag &= ~(ECHO|ICANON);  /* 入力をエコーバックしない、バッファリングしない */
+	settings.c_lflag &= ~(ECHO|ICANON);  /* without input echo, and unbuffered */
 	settings.c_cc[VTIME] = 0;
 	settings.c_cc[VMIN] = 1;
 	tcsetattr(0,TCSANOW,&settings);
