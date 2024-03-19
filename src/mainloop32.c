@@ -23,11 +23,14 @@ extern volatile sig_atomic_t tflag;
 
 #define POINTER_LOG_SIZE 30
 static uint32_t pointerLog[POINTER_LOG_SIZE];
-static int pointerLog_start, pointerLog_end;
+static int pointerLog_start = 0;
+static int pointerLog_end   = 0;
+static int pointerLog_full  = 0;
 static void saveInstPointer(uint32_t pointer){
 	pointerLog_end = (pointerLog_end+1) % POINTER_LOG_SIZE;
 	if( pointerLog_end == pointerLog_start ){
 		pointerLog_start = (pointerLog_start+1) % POINTER_LOG_SIZE;
+		pointerLog_full  = 1;
 	}
 	pointerLog[pointerLog_end] = pointer;
 }
@@ -333,7 +336,7 @@ mainloop32_exit:
 
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "history:\n");
-	for(int loop=pointerLog_start; loop != pointerLog_end; loop = (loop+1)%POINTER_LOG_SIZE){
+	for(int loop=pointerLog_start; (pointerLog_full && loop != pointerLog_end) || (!pointerLog_full && loop < pointerLog_end); loop = (loop+1)%POINTER_LOG_SIZE){
 		logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x\n", pointerLog[loop]);
 	}
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
