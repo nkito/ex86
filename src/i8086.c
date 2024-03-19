@@ -280,8 +280,7 @@ int main(int argc, char *argv[]){
 				fprintf(stderr, " Failed to open \"%s\" \n", filename);
 				exit(1);
 			}
-//			for(uint32_t i=0; i< EMU_MEM_SIZE; i+=16){
-			for(uint32_t i=0xc1ff0000; i< 0xc2000000; i+=16){
+			for(uint32_t i=0; i< EMU_MEM_SIZE; i+=16){
 				fprintf(fp, "%05x: ", i);
 				for(uint32_t j=0; j< 16; j++){
 					if( checkLinearAccessible(&ms, i+j) ){

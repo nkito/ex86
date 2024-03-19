@@ -323,8 +323,9 @@ mainloop32_exit:
 
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "history:\n");
-	for(int loop=pointerLog_start; pointerLog_end >= 0 && loop != pointerLog_end; loop = (loop+1)%POINTER_LOG_SIZE){
-		logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x\n", pointerLog[loop]);
+	for(int i=pointerLog_start; pointerLog_end >= 0 && pointerLog_end < POINTER_LOG_SIZE; i = (i+1)%POINTER_LOG_SIZE){
+		logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x\n", pointerLog[i]);
+		if(i == pointerLog_end) break;
 	}
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x, instruction cache = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
