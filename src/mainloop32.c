@@ -24,14 +24,13 @@ extern volatile sig_atomic_t tflag;
 #define POINTER_LOG_SIZE 30
 static uint32_t pointerLog[POINTER_LOG_SIZE];
 static int pointerLog_start = 0;
-static int pointerLog_end   = 0;
-static int pointerLog_full  = 0;
+static int pointerLog_end   =-1;
 static void saveInstPointer(uint32_t pointer){
-	pointerLog_end = (pointerLog_end+1) % POINTER_LOG_SIZE;
-	if( pointerLog_end == pointerLog_start ){
+	int next_end = (pointerLog_end+1) % POINTER_LOG_SIZE;
+	if( pointerLog_end >= 0 && next_end == pointerLog_start ){
 		pointerLog_start = (pointerLog_start+1) % POINTER_LOG_SIZE;
-		pointerLog_full  = 1;
 	}
+	pointerLog_end = next_end;
 	pointerLog[pointerLog_end] = pointer;
 }
 
@@ -157,7 +156,6 @@ void mainloop32_inner(struct stMachineState *pM){
 	int result;
 	uint32_t prev_eflags;
 	uint32_t pointer = REG_CS_BASE + REG_EIP;
-	// uint8_t inst0, inst1;
 	int (*exFunc)(struct stMachineState *pM, uint32_t pointer);
 
 
@@ -199,16 +197,6 @@ void mainloop32_inner(struct stMachineState *pM){
 
 		pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
 		pM->reg.fetchCache[1] = fetchCodeDataByte(pM, pointer+1);
-
-/*
-		if(pointer >= 0x11064c && pointer <= 0x110681 ){
-			static int pointer_cnt=0;
-			if( pointer_cnt++ > 15000 ){
-				DEBUG = 1;
-				pM->emu.stop = pM->emu.nExecInsts + pM->emu.runAfterBreak;
-			}
-		}
-*/
 
 		if(DEBUG){
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
@@ -312,7 +300,6 @@ void mainloop32_inner(struct stMachineState *pM){
 			goto mainloop32_exit;
 		}
 
-
 		pM->emu.nExecInsts++;
 	}
 
@@ -336,7 +323,7 @@ mainloop32_exit:
 
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "history:\n");
-	for(int loop=pointerLog_start; (pointerLog_full && loop != pointerLog_end) || (!pointerLog_full && loop < pointerLog_end); loop = (loop+1)%POINTER_LOG_SIZE){
+	for(int loop=pointerLog_start; pointerLog_end >= 0 && loop != pointerLog_end; loop = (loop+1)%POINTER_LOG_SIZE){
 		logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x\n", pointerLog[loop]);
 	}
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
