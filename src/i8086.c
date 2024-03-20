@@ -101,30 +101,9 @@ int main(int argc, char *argv[]){
 	ms.reg.descc_gs.limit = ms.reg.descc_gs.limit_max = 0xffff; ms.reg.descc_gs.writable = 1;
 
 	ms.reg.eax  = 0x12345678;
-	ms.reg.p_ax = (uint16_t *)(&(ms.reg.eax)); ms.reg.p_bx = (uint16_t *)(&(ms.reg.ebx));
-	ms.reg.p_cx = (uint16_t *)(&(ms.reg.ecx)); ms.reg.p_dx = (uint16_t *)(&(ms.reg.edx));
-	ms.reg.p_sp = (uint16_t *)(&(ms.reg.esp)); ms.reg.p_bp = (uint16_t *)(&(ms.reg.ebp));
-	ms.reg.p_si = (uint16_t *)(&(ms.reg.esi)); ms.reg.p_di = (uint16_t *)(&(ms.reg.edi));
-	ms.reg.p_ip = (uint16_t *)(&(ms.reg.eip)); ms.reg.p_flags = (uint16_t *)(&(ms.reg.eflags));
-
-	// This line is necessary (to avoid compiler optimization)
-	// Compiler seems to guess the value of *reg.p_ax is not initialized and 
-	// omits the following two "if" statements for checking endianness if this function call (printf) does not exist.
 	printf(" ");
-
-	if( *(ms.reg.p_ax) == 0x5678 ){
-		// little endian
-		printf("This computer is little-endian.\n");
-	}else if( *(ms.reg.p_ax) == 0x1234 ){
-		// big endian
-		printf("This computer is big-endian.\n");
-		ms.reg.p_ax++; ms.reg.p_bx++;
-		ms.reg.p_cx++; ms.reg.p_dx++;
-		ms.reg.p_sp++; ms.reg.p_bp++;
-		ms.reg.p_si++; ms.reg.p_di++;
-		ms.reg.p_ip++; ms.reg.p_flags++;
-	}else{
-		fprintf(stderr, "failed to reset CPU registers.\n");
+	if( ms.reg.ax[FIRST_WORD_IDX_IN_DWORD] != 0x5678 ){
+		fprintf(stderr, "Wrong byte order seems to be specified in compiling time. Please recompile.\n");
 		exit(1);
 	}
 	ms.reg.eax  = 0x0;

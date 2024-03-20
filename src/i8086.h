@@ -2,6 +2,7 @@
 #define __I8086_H__ 
 
 #include <setjmp.h>
+#include <stdint.h>
 
 #define EMU_MEM_SIZE (8*1024*1024)
 
@@ -82,17 +83,55 @@ struct stCodeDesc{
 };
 
 
+/*
+"ax[FIRST_WORD_IDX_IN_DWORD]" is the lower half word of "eax"
+*/
+#if defined(TARGET_BYTE_ORDER_LITTLE_ENDIAN)
+#define FIRST_WORD_IDX_IN_DWORD 0
+#elif defined(TARGET_BYTE_ORDER_BIG_ENDIAN)
+#define FIRST_WORD_IDX_IN_DWORD 1
+#elif defined(__BYTE_ORDER__)&&(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define FIRST_WORD_IDX_IN_DWORD 0
+#elif defined(__BYTE_ORDER__)&&(__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#define FIRST_WORD_IDX_IN_DWORD 1
+#else
+#error "Please define TARGET_BYTE_ORDER_LITTLE_ENDIAN or TARGET_BYTE_ORDER_LITTLE_ENDIAN"
+#endif
 
 struct stReg{
-	uint32_t eax;
-	uint32_t ebx;
-	uint32_t ecx;
-	uint32_t edx;
+	union{
+		uint32_t eax;
+		uint16_t ax[2];
+	};
+	union{
+		uint32_t ebx;
+		uint16_t bx[2];
+	};
+	union{
+		uint32_t ecx;
+		uint16_t cx[2];
+	};
+	union{
+		uint32_t edx;
+		uint16_t dx[2];
+	};
 
-	uint32_t esp;
-	uint32_t ebp;
-	uint32_t esi;
-	uint32_t edi;
+	union{
+		uint32_t esp;
+		uint16_t sp[2];
+	};
+	union{
+		uint32_t ebp;
+		uint16_t bp[2];
+	};
+	union{
+		uint32_t esi;
+		uint16_t si[2];
+	};
+	union{
+		uint32_t edi;
+		uint16_t di[2];
+	};
 
 	uint16_t es;
 	uint16_t cs;
@@ -102,8 +141,14 @@ struct stReg{
 	uint16_t fs; // 386
 	uint16_t gs; // 386
 
-	uint32_t eip;
-	uint32_t eflags;
+	union{
+		uint32_t eip;
+		uint16_t ip[2];
+	};
+	union{
+		uint32_t eflags;
+		uint16_t flags[2];
+	};
 
 	uint32_t cr[4];
 	uint32_t dr[8];
@@ -120,6 +165,7 @@ struct stReg{
 	uint16_t ldtr;
 	uint16_t tr; // task register
 
+/*
 	uint16_t *p_ax;
 	uint16_t *p_bx;
 	uint16_t *p_cx;
@@ -132,6 +178,7 @@ struct stReg{
 
 	uint16_t *p_ip;
 	uint16_t *p_flags;
+*/
 
 	struct stDataDesc descc_es;
 	struct stCodeDesc descc_cs;

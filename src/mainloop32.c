@@ -201,13 +201,13 @@ void mainloop32_inner(struct stMachineState *pM){
 		if(DEBUG){
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
-			log_printReg32(LOGLEVEL_EMU_NOTICE, &(pM->reg));
+			log_printReg32(LOGLEVEL_EMU_NOTICE, pM);
 		}
 		if( ((pointer&pM->emu.breakMask) == (pM->emu.breakPoint&pM->emu.breakMask) && pM->emu.stop==0) || (pM->emu.breakCounter != 0 && pM->emu.breakCounter == pM->emu.nExecInsts) ){
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "Breakpoint\n");
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
-			log_printReg32(LOGLEVEL_EMU_NOTICE, &(pM->reg));
+			log_printReg32(LOGLEVEL_EMU_NOTICE, pM);
 
 			DEBUG=1;
 			pM->emu.stop = pM->emu.nExecInsts + pM->emu.runAfterBreak;
@@ -339,6 +339,6 @@ mainloop32_exit:
 	}
 	logfile_printf_without_header(LOGLEVEL_EMU_NOTICE, "\n");
 
-	log_printReg32(LOGLEVEL_EMU_NOTICE, &(pM->reg));
+	log_printReg32(LOGLEVEL_EMU_NOTICE, pM);
 
 }

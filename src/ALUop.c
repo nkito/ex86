@@ -3,7 +3,7 @@
 
 #include "i8086.h"
 #include "ALUop.h"
-
+#include "ExInst_common.h"
 
 uint32_t calcParityDoubleWord(uint32_t val){
     uint32_t p;
@@ -32,14 +32,14 @@ uint8_t calcParityByte(uint8_t val){
     return (p^1);
 }
 
-static void updateFlags_OSZPC(uint16_t *pFlags, uint16_t of, uint16_t sf, uint16_t zf, uint16_t pf, uint16_t cf){
-	*pFlags &= ~((1<<FLAGS_BIT_OF) | (1<<FLAGS_BIT_SF) | (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_CF));
-	*pFlags |= ((of<<FLAGS_BIT_OF) |(sf<<FLAGS_BIT_SF) |(zf<<FLAGS_BIT_ZF) |(pf<<FLAGS_BIT_PF) |(cf<<FLAGS_BIT_CF));
+static void updateFlags_OSZPC(struct stMachineState *pM, uint16_t of, uint16_t sf, uint16_t zf, uint16_t pf, uint16_t cf){
+	REG_FLAGS &= ~((1<<FLAGS_BIT_OF) | (1<<FLAGS_BIT_SF) | (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_CF));
+	REG_FLAGS |= ((of<<FLAGS_BIT_OF) |(sf<<FLAGS_BIT_SF) |(zf<<FLAGS_BIT_ZF) |(pf<<FLAGS_BIT_PF) |(cf<<FLAGS_BIT_CF));
 }
 
-static void updateFlags_OSZAPC(uint16_t *pFlags, uint16_t of, uint16_t sf, uint16_t zf, uint16_t af, uint16_t pf, uint16_t cf){
-	*pFlags &= ~((1<<FLAGS_BIT_OF) | (1<<FLAGS_BIT_SF) | (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_AF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_CF));
-	*pFlags |= ((of<<FLAGS_BIT_OF) |(sf<<FLAGS_BIT_SF) |(zf<<FLAGS_BIT_ZF) |(af<<FLAGS_BIT_AF) |(pf<<FLAGS_BIT_PF) |(cf<<FLAGS_BIT_CF));
+static void updateFlags_OSZAPC(struct stMachineState *pM, uint16_t of, uint16_t sf, uint16_t zf, uint16_t af, uint16_t pf, uint16_t cf){
+	REG_FLAGS &= ~((1<<FLAGS_BIT_OF) | (1<<FLAGS_BIT_SF) | (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_AF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_CF));
+	REG_FLAGS |= ((of<<FLAGS_BIT_OF) |(sf<<FLAGS_BIT_SF) |(zf<<FLAGS_BIT_ZF) |(af<<FLAGS_BIT_AF) |(pf<<FLAGS_BIT_PF) |(cf<<FLAGS_BIT_CF));
 }
 
 uint32_t ALUOPAdd(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isWord){
@@ -75,7 +75,7 @@ uint32_t ALUOPAdd(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isW
         if( result32 & 0x100 ) carry = 1;
     }
 
-    updateFlags_OSZAPC(pM->reg.p_flags,
+    updateFlags_OSZAPC(pM,
         ovf,       // overflow flag (signed overflow)
         sign,      // sign flag
         zero,      // zero flag
@@ -121,7 +121,7 @@ uint32_t ALUOPSub(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isW
         if( ((uint8_t)op1) <  ((uint8_t)op2) ) carry = 1;
     }
 
-    updateFlags_OSZAPC(pM->reg.p_flags, 
+    updateFlags_OSZAPC(pM, 
         ovf,       // overflow flag (signed overflow)
         sign,      // sign flag
         zero,      // zero flag
@@ -174,7 +174,7 @@ uint32_t ALUOPAdd3(struct stMachineState *pM, uint32_t op1, uint32_t op2, uint32
         if( result32 & 0x100 ) carry = 1;
     }
 
-    updateFlags_OSZAPC(pM->reg.p_flags, 
+    updateFlags_OSZAPC(pM, 
         ovf,       // overflow flag
         sign,      // sign flag
         zero,      // zero flag
@@ -220,7 +220,7 @@ uint32_t ALUOPSub3(struct stMachineState *pM, uint32_t op1, uint32_t op2, uint32
         if( (op1&0xff) < (op2&0xff) + (op3&0xff) ) carry = 1;
     }
 
-    updateFlags_OSZAPC(pM->reg.p_flags, 
+    updateFlags_OSZAPC(pM, 
         ovf,       // overflow flag (signed overflow)
         sign,      // sign flag
         zero,      // zero flag
@@ -237,7 +237,7 @@ uint32_t ALUOPand(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isW
     uint32_t result = isWord ? ((pM->prefix.data32) ? land : (land&0xffff)) : (land & 0xff);
     uint32_t sign   = isWord ? ((pM->prefix.data32) ? ((result>>31)&1) : ((result>>15)&1)) : ((result>>7)&1);
 
-    updateFlags_OSZPC(pM->reg.p_flags, 
+    updateFlags_OSZPC(pM, 
         0,                     // overflow
         sign,                  // sign flag
         result == 0 ? 1 : 0,   // zero flag
@@ -251,7 +251,7 @@ uint32_t ALUOPor(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isWo
     uint32_t result = isWord ? ((pM->prefix.data32) ? lor : (lor&0xffff)) : (lor & 0xff);
     uint32_t sign   = isWord ? ((pM->prefix.data32) ? ((result>>31)&1) : ((result>>15)&1)) : ((result>>7)&1);
 
-    updateFlags_OSZPC(pM->reg.p_flags, 
+    updateFlags_OSZPC(pM, 
         0,                     // overflow
         sign,                  // sign flag
         result == 0 ? 1 : 0,   // zero flag
@@ -265,7 +265,7 @@ uint32_t ALUOPxor(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isW
     uint32_t result = isWord ? ((pM->prefix.data32) ? xor : (xor&0xffff)) : (xor & 0xff);
     uint32_t sign   = isWord ? ((pM->prefix.data32) ? ((result>>31)&1) : ((result>>15)&1)) : ((result>>7)&1);
 
-    updateFlags_OSZPC(pM->reg.p_flags, 
+    updateFlags_OSZPC(pM, 
         0,                     // overflow
         sign,                  // sign flag
         result == 0 ? 1 : 0,   // zero flag

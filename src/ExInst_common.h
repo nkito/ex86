@@ -10,20 +10,20 @@
 #define EXI_LOG_PRINTF(...)      (logfile_printf_without_header(EXI_LOGLEVEL, __VA_ARGS__))
 #define EXI_LOG_ERR_PRINTF(...)  (logfile_printf(EXI_LOGLEVEL, __VA_ARGS__))
 
-#define REG_AX    (*(pM->reg.p_ax))
-#define REG_CX    (*(pM->reg.p_cx))
-#define REG_DX    (*(pM->reg.p_dx))
-#define REG_BX    (*(pM->reg.p_bx))
+#define REG_AX    (pM->reg.ax[FIRST_WORD_IDX_IN_DWORD])
+#define REG_CX    (pM->reg.cx[FIRST_WORD_IDX_IN_DWORD])
+#define REG_DX    (pM->reg.dx[FIRST_WORD_IDX_IN_DWORD])
+#define REG_BX    (pM->reg.bx[FIRST_WORD_IDX_IN_DWORD])
 
 #define REG_EAX    (pM->reg.eax)
 #define REG_ECX    (pM->reg.ecx)
 #define REG_EDX    (pM->reg.edx)
 #define REG_EBX    (pM->reg.ebx)
 
-#define REG_SP    (*(pM->reg.p_sp))
-#define REG_BP    (*(pM->reg.p_bp))
-#define REG_SI    (*(pM->reg.p_si))
-#define REG_DI    (*(pM->reg.p_di))
+#define REG_SP    (pM->reg.sp[FIRST_WORD_IDX_IN_DWORD])
+#define REG_BP    (pM->reg.bp[FIRST_WORD_IDX_IN_DWORD])
+#define REG_SI    (pM->reg.si[FIRST_WORD_IDX_IN_DWORD])
+#define REG_DI    (pM->reg.di[FIRST_WORD_IDX_IN_DWORD])
 
 #define REG_ESP    (pM->reg.esp)
 #define REG_EBP    (pM->reg.ebp)
@@ -37,7 +37,7 @@
 #define REG_FS    (pM->reg.fs)
 #define REG_GS    (pM->reg.gs)
 
-#define REG_FLAGS  (*(pM->reg.p_flags))
+#define REG_FLAGS  (pM->reg.flags[FIRST_WORD_IDX_IN_DWORD])
 #define REG_EFLAGS (pM->reg.eflags)
 
 #define REG_CR0   (pM->reg.cr[0])
@@ -45,7 +45,7 @@
 #define REG_CR3   (pM->reg.cr[3])
 
 
-#define REG_IP     (*(pM->reg.p_ip))
+#define REG_IP     (pM->reg.ip[FIRST_WORD_IDX_IN_DWORD])
 #define REG_EIP    (pM->reg.eip)
 
 #define REG_ES_BASE    (pM->reg.descc_es.base)

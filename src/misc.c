@@ -3,7 +3,7 @@
 
 #include "i8086.h"
 #include "logfile.h"
-
+#include "ExInst_common.h"
 
 static void log_printOpl16(int loglevel, struct stOpl *pOp);
 static void log_printOpl32(int loglevel, struct stOpl *pOp);
@@ -99,23 +99,23 @@ static void log_printOpl32(int loglevel, struct stOpl *pOp){
     }
 }
 
-void log_printReg16(int loglevel, struct stReg *preg){
-	logfile_printf(loglevel, "CS:IP = %04x:%04x\n", preg->cs, *(preg->p_ip));
-	logfile_printf(loglevel, "AX=%04x BX=%04x CX=%04x DX=%04x \n", *(preg->p_ax), *(preg->p_bx), *(preg->p_cx), *(preg->p_dx));
-	logfile_printf(loglevel, "SP=%04x BP=%04x SI=%04x DI=%04x \n", *(preg->p_sp), *(preg->p_bp), *(preg->p_si), *(preg->p_di));
-	logfile_printf(loglevel, "ES=%04x CS=%04x SS=%04x DS=%04x FLAGS=%04x \n", preg->es, preg->cs, preg->ss, preg->ds, *(preg->p_flags));
+void log_printReg16(int loglevel, struct stMachineState *pM){
+	logfile_printf(loglevel, "CS:IP = %04x:%04x\n", REG_CS, REG_IP);
+	logfile_printf(loglevel, "AX=%04x BX=%04x CX=%04x DX=%04x \n", REG_AX, REG_BX, REG_CX, REG_DX);
+	logfile_printf(loglevel, "SP=%04x BP=%04x SI=%04x DI=%04x \n", REG_SP, REG_BP, REG_SI, REG_DI);
+	logfile_printf(loglevel, "ES=%04x CS=%04x SS=%04x DS=%04x FLAGS=%04x \n", REG_ES, REG_CS, REG_SS, REG_DS, REG_FLAGS);
 }
 
-void log_printReg32(int loglevel, struct stReg *preg){
-	logfile_printf(loglevel, "CS:EIP = %04x:%08x\n", preg->cs, preg->eip);
-	logfile_printf(loglevel, "EAX=%08x EBX=%08x ECX=%08x EDX=%08x \n", preg->eax, preg->ebx, preg->ecx, preg->edx);
-	logfile_printf(loglevel, "ESP=%08x EBP=%08x ESI=%08x EDI=%08x \n", preg->esp, preg->ebp, preg->esi, preg->edi);
+void log_printReg32(int loglevel, struct stMachineState *pM){
+	logfile_printf(loglevel, "CS:EIP = %04x:%08x\n", REG_CS, REG_EIP);
+	logfile_printf(loglevel, "EAX=%08x EBX=%08x ECX=%08x EDX=%08x \n", REG_EAX, REG_EBX, REG_ECX, REG_EDX);
+	logfile_printf(loglevel, "ESP=%08x EBP=%08x ESI=%08x EDI=%08x \n", REG_ESP, REG_EBP, REG_ESI, REG_EDI);
 	logfile_printf(loglevel, "ES=%04x (base:%08x) CS=%04x (base:%08x) SS=%04x%c(base:%08x)\n",
-		preg->es, preg->descc_es.base, preg->cs, preg->descc_cs.base, preg->ss, (preg->descc_ss.flags & (1<<2)) ? 'D' : 'W', preg->descc_ss.base);
+		REG_ES, REG_ES_BASE, REG_CS, REG_CS_BASE, REG_SS, (pM->reg.descc_ss.flags & (1<<2)) ? 'D' : 'W', REG_SS_BASE);
 	logfile_printf(loglevel, "DS=%04x (base:%08x) FS=%04x (base:%08x) GS=%04x (base:%08x)\n", 
-		preg->ds, preg->descc_ds.base, preg->fs, preg->descc_fs.base, preg->gs, preg->descc_gs.base);
-	logfile_printf(loglevel, "CR0=%08x CR1=%08x CR2=%08x CR3=%08x EFLAGS=%08x CPL=%x D=%d\n",
-		preg->cr[0], preg->cr[1], preg->cr[2], preg->cr[3], preg->eflags, preg->cpl, (preg->descc_cs.flags & (1<<2)) ? 32 : 16);
+		REG_DS, REG_DS_BASE, REG_FS, REG_FS_BASE, REG_GS, REG_GS_BASE);
+	logfile_printf(loglevel, "CR0=%08x CR2=%08x CR3=%08x EFLAGS=%08x CPL=%x D=%d\n",
+		REG_CR0, REG_CR2, REG_CR3, REG_EFLAGS, pM->reg.cpl, (pM->reg.descc_cs.flags & (1<<2)) ? 32 : 16);
 }
 
 uint32_t parseHex(char *str){

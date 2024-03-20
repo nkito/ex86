@@ -61,13 +61,13 @@ void mainloop16(struct stMachineState *pM){
 		if(DEBUG){
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
-			log_printReg16(LOGLEVEL_EMU_NOTICE, &(pM->reg));
+			log_printReg16(LOGLEVEL_EMU_NOTICE, pM);
 		}
 		if( (pointer == pM->emu.breakPoint && stop==0) || (pM->emu.breakCounter != 0 && pM->emu.breakCounter == nExecInsts) ){
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "Breakpoint\n");
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
 			logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
-			log_printReg16(LOGLEVEL_EMU_NOTICE, &(pM->reg));
+			log_printReg16(LOGLEVEL_EMU_NOTICE, pM);
 
 			DEBUG=1;
 			stop = nExecInsts + pM->emu.runAfterBreak;
@@ -184,6 +184,6 @@ mainloop16_exit:
 	}
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
 	logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
-	log_printReg16(LOGLEVEL_EMU_NOTICE, &(pM->reg));
+	log_printReg16(LOGLEVEL_EMU_NOTICE, pM);
 
 }
