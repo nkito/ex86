@@ -33,10 +33,17 @@ OBJS      = $(addprefix $(OBJ_DIR)/,$(patsubst %.c,%.o,$(SOURCES)))
 
 CFLAGS    = -O3 -Wall -g
 
+# If estimation of the byte order during compile time fails or
+# you need to specify the byte order such as the cases for cross compiling, 
+# please use the corresponding one of following two lines
+#
+# CFLAGS += -DTARGET_BYTE_ORDER_LITTLE_ENDIAN
+# CFLAGS += -DTARGET_BYTE_ORDER_BIG_ENDIAN
+
 all: $(TARGET) 
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) $^ -o $@ -lpthread
+	$(CC) $(CFLAGS) $^ -o $@ 
 
 $(OBJ_DIR)/%.o : $(SRC_DIR)/%.c
 	@mkdir -p $(OBJ_DIR)
