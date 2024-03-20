@@ -87,16 +87,18 @@ struct stCodeDesc{
 FIRST_WORD_IDX_IN_DWORD should be defined so that
 "ax[FIRST_WORD_IDX_IN_DWORD]" is the lower half word of "eax"
 */
-#if defined(TARGET_BYTE_ORDER_LITTLE_ENDIAN)
+#if defined(HOST_BYTE_ORDER_LITTLE_ENDIAN) && defined(HOST_BYTE_ORDER_BIG_ENDIAN)
+#error "Please define HOST_BYTE_ORDER_LITTLE_ENDIAN *OR* HOST_BYTE_ORDER_BIG_ENDIAN"
+#elif defined(HOST_BYTE_ORDER_LITTLE_ENDIAN)
 #define FIRST_WORD_IDX_IN_DWORD 0
-#elif defined(TARGET_BYTE_ORDER_BIG_ENDIAN)
+#elif defined(HOST_BYTE_ORDER_BIG_ENDIAN)
 #define FIRST_WORD_IDX_IN_DWORD 1
 #elif defined(__BYTE_ORDER__)&&(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 #define FIRST_WORD_IDX_IN_DWORD 0
 #elif defined(__BYTE_ORDER__)&&(__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 #define FIRST_WORD_IDX_IN_DWORD 1
 #else
-#error "Please define TARGET_BYTE_ORDER_LITTLE_ENDIAN or TARGET_BYTE_ORDER_LITTLE_ENDIAN"
+#error "Please define HOST_BYTE_ORDER_LITTLE_ENDIAN or HOST_BYTE_ORDER_BIG_ENDIAN"
 #endif
 
 struct stReg{

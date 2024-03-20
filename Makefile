@@ -37,8 +37,8 @@ CFLAGS    = -O3 -Wall -g
 # you need to specify the byte order such as the cases for cross compiling, 
 # please use the corresponding one of following two lines
 #
-# CFLAGS += -DTARGET_BYTE_ORDER_LITTLE_ENDIAN
-# CFLAGS += -DTARGET_BYTE_ORDER_BIG_ENDIAN
+# CFLAGS += -DHOST_BYTE_ORDER_LITTLE_ENDIAN
+# CFLAGS += -DHOST_BYTE_ORDER_BIG_ENDIAN
 
 all: $(TARGET) 
 
