@@ -55,6 +55,9 @@ void termGoTo(int x, int y){
 	printf("\033[%d;%dH", y, x);
 }
 
+void termClear(void){
+	printf("\033[2J");
+}
 
 void termResetSettingForExit(void){
 	// set cursor position

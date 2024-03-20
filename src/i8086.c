@@ -26,8 +26,12 @@ volatile sig_atomic_t eflag = 0;
 extern volatile sig_atomic_t tflag;
 
 void sig_handler_SIGINT(int signum) {
-	eflag = 1;
+	eflag = eflag + 1;
 }
+//-----------------------------------------------------
+// Terminal setting
+//-----------------------------------------------------
+struct termios term_original_settings;
 //-----------------------------------------------------
 
 
@@ -230,11 +234,10 @@ int main(int argc, char *argv[]){
 	//-----------------------------------------------------
 
 
-	struct termios save_settings;
 	struct termios settings;
 
-	tcgetattr(0, &save_settings);
-	settings = save_settings;
+	tcgetattr(0, &term_original_settings);
+	settings = term_original_settings;
 	settings.c_lflag &= ~(ECHO|ICANON);  /* without input echo, and unbuffered */
 	settings.c_cc[VTIME] = 0;
 	settings.c_cc[VMIN] = 1;
@@ -247,14 +250,16 @@ int main(int argc, char *argv[]){
 		mainloop32(&ms);
 	}
 
-	tcsetattr(0, TCSANOW, &save_settings);
+	tcsetattr(0, TCSANOW, &term_original_settings);
 	termResetSettingForExit();
 
 	logfile_close();
 
+/*
 	if( eflag ){
 		printf("Interrupt...\n");
 	}
+*/
 
 	if( dump_memory ){
 		if( ms.reg.cr[0] & (1<<CR0_BIT_PE) ){

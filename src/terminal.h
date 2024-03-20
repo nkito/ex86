@@ -62,6 +62,7 @@ void termResetColor(void);
 void termSetBlinkOff(void);
 void termResetBlink(void);
 void termGoTo(int x, int y);
+void termClear(void);
 
 void termResetSettingForExit(void);
 
