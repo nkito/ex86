@@ -17,7 +17,11 @@ void logfile_init(unsigned int enCategory, unsigned int loglv){
     enabled_category = (enCategory & LOGCAT_MASK);
     lowerlevel       = (loglv      & LOGLV_MASK);
 
-    fp_logfile = fopen(LOGFILE_NAME, "a+");
+    if( lowerlevel < LOGLV_DISABLE_LOG ){
+        fp_logfile = fopen(LOGFILE_NAME, "a+");
+    }else{
+        fp_logfile = NULL;
+    }
 }
 
 void logfile_close(void){

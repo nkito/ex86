@@ -27,9 +27,11 @@
 #define LOGLV_INFO2   0x2
 #define LOGLV_INFO3   0x3
 #define LOGLV_INFO4   0x4
-#define LOGLV_NOTICE  0xc
-#define LOGLV_WARNING 0xe
-#define LOGLV_ERROR   0xf
+#define LOGLV_NOTICE  0xa
+#define LOGLV_WARNING 0xb
+#define LOGLV_ERROR   0xc
+
+#define LOGLV_DISABLE_LOG   0xf
 
 void logfile_init(unsigned int enCategory, unsigned int loglv);
 void logfile_close(void);

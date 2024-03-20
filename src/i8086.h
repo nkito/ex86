@@ -84,6 +84,7 @@ struct stCodeDesc{
 
 
 /*
+FIRST_WORD_IDX_IN_DWORD should be defined so that
 "ax[FIRST_WORD_IDX_IN_DWORD]" is the lower half word of "eax"
 */
 #if defined(TARGET_BYTE_ORDER_LITTLE_ENDIAN)
@@ -138,8 +139,8 @@ struct stReg{
 	uint16_t ss;
 	uint16_t ds;
 
-	uint16_t fs; // 386
-	uint16_t gs; // 386
+	uint16_t fs; // added from 386
+	uint16_t gs; // added from 386
 
 	union{
 		uint32_t eip;
@@ -164,21 +165,6 @@ struct stReg{
 
 	uint16_t ldtr;
 	uint16_t tr; // task register
-
-/*
-	uint16_t *p_ax;
-	uint16_t *p_bx;
-	uint16_t *p_cx;
-	uint16_t *p_dx;
-
-	uint16_t *p_sp;
-	uint16_t *p_bp;
-	uint16_t *p_si;
-	uint16_t *p_di;
-
-	uint16_t *p_ip;
-	uint16_t *p_flags;
-*/
 
 	struct stDataDesc descc_es;
 	struct stCodeDesc descc_cs;
