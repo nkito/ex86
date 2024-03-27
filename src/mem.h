@@ -5,6 +5,8 @@
 #define BIOS_DATA_AREA_CURSOR_X_0    0x450
 #define BIOS_DATA_AREA_CURSOR_Y_0    0x451
 
+void flushTLB(struct stMachineState *pM);
+
 int checkLinearAccessible(struct stMachineState *pM, uint32_t linear);
 
 uint8_t  fetchCodeDataByte(struct stMachineState *pM, uint32_t addr);

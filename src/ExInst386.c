@@ -336,6 +336,11 @@ int exMOVCRDR(struct stMachineState *pM, uint32_t pointer){
 
             pM->reg.cr[idx] = readOpl(pM, &op);
 
+            if( idx == 3 ){
+                // TLB should be flushed
+                flushTLB(pM);
+            }
+
         }else{
             // DR
             pM->reg.dr[idx] = readOpl(pM, &op);

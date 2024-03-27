@@ -82,6 +82,13 @@ struct stCodeDesc{
 	uint32_t limit_min, limit_max;
 };
 
+#define TLB_ENTRY_BITS 10
+#define TLB_NASOC       2
+
+struct stTLB{
+	uint32_t addr[TLB_NASOC];
+	uint32_t pte [TLB_NASOC];
+};
 
 /*
 FIRST_WORD_IDX_IN_DWORD should be defined so that
@@ -178,10 +185,11 @@ struct stReg{
 	struct stRawSegmentDesc descc_ldt;	// cache of local descriptor
 	struct stRawSegmentDesc descc_tr;	// cache of task register
 
+	struct stTLB tlb[1<<TLB_ENTRY_BITS];
+
 	uint32_t fault;
 	uint32_t error_code;
 	uint8_t  cpl;
-
 
 	uint32_t current_eip;
 	uint16_t current_cs;
@@ -290,6 +298,7 @@ struct stMachineState{
 	struct stPrefix prefix;
 	struct stMemIORegion mem;
 };
+
 
 
 #define MEMADDR(seg, oft) (((((uint32_t)(seg)) << 4) + ((uint32_t)(oft))) & 0xfffff)

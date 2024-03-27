@@ -62,10 +62,31 @@ int checkLinearAccessible(struct stMachineState *pM, uint32_t linear){
     return 1;
 }
 
+void flushTLB(struct stMachineState *pM){
+    int i, j;
+
+    for(i=0; i<(1<<TLB_ENTRY_BITS); i++){
+        for(j=0; j<TLB_NASOC; j++){
+            pM->reg.tlb[i].addr[j] = 0;
+            pM->reg.tlb[i].pte[j]  = 0;
+        }
+    }
+}
+
 #define PF_ERROR_CODE(US, WR, PRESENT) (((US)? 4 : 0) | ((WR)? 2:0) | ((PRESENT)? 1:0))
 
 uint32_t getPhysFromLinear(struct stMachineState *pM, uint32_t linear, uint8_t readAcc, uint8_t pl){
-    uint32_t dir, pde, ptable, pte=0, paddr=0;
+    uint32_t dir=0, pde=0, ptable=0, pte=0, paddr=0;
+    uint32_t i, tlb_entry, entry_idx;
+    
+    tlb_entry = ((linear >> (32-TLB_ENTRY_BITS)) & ((1<<TLB_ENTRY_BITS)-1));
+    for(i=0; i<TLB_NASOC; i++){
+        if( pM->reg.tlb[tlb_entry].pte     != 0 &&
+            pM->reg.tlb[tlb_entry].addr[i] == (linear & 0xfffff000) ){
+            pte = pM->reg.tlb[tlb_entry].pte[i];
+            goto TLB_hit;
+        }
+    }
 
     dir     = (REG_CR3 & 0xfffff000); // pM->reg.cr[3];
     dir    += ( ((linear >> 22) & ((1<<10)-1)) << 2);
@@ -99,6 +120,8 @@ uint32_t getPhysFromLinear(struct stMachineState *pM, uint32_t linear, uint8_t r
     }
 
     pte     = readPhysMemDoubleWord(pM, ptable);
+
+TLB_hit:
     paddr   = (pte & 0xfffff000);
     paddr  += (linear & 0xfff);
 
@@ -122,8 +145,34 @@ uint32_t getPhysFromLinear(struct stMachineState *pM, uint32_t linear, uint8_t r
     }
 
     if(0==(pte&0x20)){ // set A (Access) bit and D (Dirty) bit
-        writePhysMemByte(pM, ptable, readAcc ? (pte|0x20) : (pte|0x20|0x40) );
+        pte = readAcc ? (pte|0x20) : (pte|0x20|0x40);
+        writePhysMemByte(pM, ptable, pte);
     }
+
+    // Update of the TLB
+    for(i=0; i<TLB_NASOC; i++){
+        if( pM->reg.tlb[tlb_entry].addr[i] == (linear & 0xfffff000) ){
+            goto tlb_reflesh_exit;
+        }
+        if( pM->reg.tlb[tlb_entry].pte[i] == 0 ){
+            entry_idx = i;
+            goto tlb_reflesh;
+        }
+    }
+
+    // If there is no unused slot, old items are moved to higher slots and the first slot is used for the current PTE.
+    for(i=TLB_NASOC-1; i>0; i--){
+        pM->reg.tlb[tlb_entry].addr[i] = pM->reg.tlb[tlb_entry].addr[i-1];
+        pM->reg.tlb[tlb_entry].pte [i] = pM->reg.tlb[tlb_entry].pte [i-1];
+    }
+    entry_idx = 0;
+ 
+tlb_reflesh:
+    pM->reg.tlb[tlb_entry].addr[entry_idx] = (linear & 0xfffff000);
+    pM->reg.tlb[tlb_entry].pte [entry_idx] = pte;
+
+tlb_reflesh_exit:
+
     return paddr;
 
 fault_pf:
