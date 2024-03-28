@@ -10,6 +10,9 @@ void flushTLB(struct stMachineState *pM);
 int checkLinearAccessible(struct stMachineState *pM, uint32_t linear);
 
 uint8_t  fetchCodeDataByte(struct stMachineState *pM, uint32_t addr);
+uint16_t fetchCodeDataWord(struct stMachineState *pM, uint32_t addr);
+uint32_t fetchCodeDataDoubleWord(struct stMachineState *pM, uint32_t addr);
+
 uint8_t  readDataMemByteAsSV(struct stMachineState *pM, uint32_t addr);
 uint8_t  readDataMemByte(struct stMachineState *pM, uint32_t addr);
 uint16_t readDataMemWord(struct stMachineState *pM, uint32_t addr);

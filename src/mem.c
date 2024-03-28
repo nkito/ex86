@@ -13,11 +13,6 @@ inline uint32_t readPhysMemDoubleWord(struct stMachineState *pM, uint32_t addr){
     uint32_t addr2 = addr + 2;
     uint32_t addr3 = addr + 3;
 
-/*
-    if( addr  >= EMU_MEM_SIZE ) return 0; // addr  = (addr  % EMU_MEM_SIZE);
-    if( addr1 >= EMU_MEM_SIZE ) return 0; // addr1 = (addr1 % EMU_MEM_SIZE);
-    if( addr2 >= EMU_MEM_SIZE ) return 0; // addr2 = (addr2 % EMU_MEM_SIZE);
-*/
     if( addr3 >= EMU_MEM_SIZE ) return 0; // addr3 = (addr3 % EMU_MEM_SIZE);
 
     uint32_t result =
@@ -81,8 +76,9 @@ uint32_t getPhysFromLinear(struct stMachineState *pM, uint32_t linear, uint8_t r
     
     tlb_entry = ((linear >> (32-TLB_ENTRY_BITS)) & ((1<<TLB_ENTRY_BITS)-1));
     for(i=0; i<TLB_NASOC; i++){
-        if( pM->reg.tlb[tlb_entry].pte     != 0 &&
-            pM->reg.tlb[tlb_entry].addr[i] == (linear & 0xfffff000) ){
+        if( pM->reg.tlb[tlb_entry].pte[i]  != 0 &&
+            pM->reg.tlb[tlb_entry].addr[i] == (linear & 0xfffff000) &&
+            (readAcc || (pM->reg.tlb[tlb_entry].pte[i] & 0x40)) ){
             pte = pM->reg.tlb[tlb_entry].pte[i];
             goto TLB_hit;
         }
@@ -149,7 +145,7 @@ TLB_hit:
         writePhysMemByte(pM, ptable, pte);
     }
 
-    // Update of the TLB
+    // Update the TLB
     for(i=0; i<TLB_NASOC; i++){
         if( pM->reg.tlb[tlb_entry].addr[i] == (linear & 0xfffff000) ){
             goto tlb_reflesh_exit;
@@ -185,42 +181,129 @@ fault_pf:
     return paddr;
 }
 
+uint32_t fetchCodeDataDoubleWord(struct stMachineState *pM, uint32_t addr){
+    if( addr < (REG_CS_BASE+pM->reg.descc_cs.limit_min) || addr+3 > (REG_CS_BASE+pM->reg.descc_cs.limit_max) ){
+    	logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
+        addr, pM->reg.descc_cs.limit_min, pM->reg.descc_cs.limit_max, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
+        ENTER_GP(0);
+    }
 
-uint8_t  fetchCodeDataByte(struct stMachineState *pM, uint32_t addr){
-    if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
+        if( (addr & 0xfff) + 3 >= 0x1000 ){
+            return (  ((uint32_t)fetchCodeDataByte(pM, addr+0))       |
+                     (((uint32_t)fetchCodeDataByte(pM, addr+1)) << 8) |
+                     (((uint32_t)fetchCodeDataByte(pM, addr+2)) <<16) |
+                     (((uint32_t)fetchCodeDataByte(pM, addr+3)) <<24) );
+        }
+
         addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl); // read access, privilege level = CPL
     }
 
-    if( pM->mem.a20m )          addr  &= 0xfffff;
-    if( addr  >= EMU_MEM_SIZE ) return 0; // addr   = (addr  % EMU_MEM_SIZE);
+    uint32_t addr1 = addr + 1;
+    uint32_t addr2 = addr + 2;
+    uint32_t addr3 = addr + 3;
+
+    if( pM->mem.a20m ){
+        addr  &= 0xfffff;
+        addr1 &= 0xfffff;
+        addr2 &= 0xfffff;
+        addr3 &= 0xfffff;
+
+        if( EMU_MEM_SIZE < (1<<20) ){
+            if( addr3 >= EMU_MEM_SIZE ) return 0;
+        }
+    }else{
+        if( addr3 >= EMU_MEM_SIZE ) return 0;
+    }
+
+    return (  ((uint32_t)pM->mem.mem[addr ])       |
+             (((uint32_t)pM->mem.mem[addr1]) << 8) |
+             (((uint32_t)pM->mem.mem[addr2]) <<16) |
+             (((uint32_t)pM->mem.mem[addr3]) <<24) );
+}
+
+uint16_t fetchCodeDataWord(struct stMachineState *pM, uint32_t addr){
+    if( addr < (REG_CS_BASE+pM->reg.descc_cs.limit_min) || addr+1 > (REG_CS_BASE+pM->reg.descc_cs.limit_max) ){
+    	logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
+        addr, pM->reg.descc_cs.limit_min, pM->reg.descc_cs.limit_max, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
+        ENTER_GP(0);
+    }
+
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
+        if( (addr & 0xfff) + 1 >= 0x1000 ){
+            return (  ((uint16_t)fetchCodeDataByte(pM, addr+0)) |
+                     (((uint16_t)fetchCodeDataByte(pM, addr+1)) << 8) );
+        }
+
+        addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl); // read access, privilege level = CPL
+    }
+
+    uint32_t addr1 = addr + 1;
+
+    if( pM->mem.a20m ){
+        addr  &= 0xfffff;
+        addr1 &= 0xfffff;
+    }
+    if( addr  >= EMU_MEM_SIZE ) return 0;
+    if( addr1 >= EMU_MEM_SIZE ) return 0;
+
+    return (  ((uint16_t)pM->mem.mem[addr ]) |
+             (((uint16_t)pM->mem.mem[addr1]) << 8) );
+}
+
+uint8_t fetchCodeDataByte(struct stMachineState *pM, uint32_t addr){
+    if( addr < (REG_CS_BASE+pM->reg.descc_cs.limit_min) || addr > (REG_CS_BASE+pM->reg.descc_cs.limit_max) ){
+    	logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
+        addr, pM->reg.descc_cs.limit_min, pM->reg.descc_cs.limit_max, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
+        ENTER_GP(0);
+    }
+
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
+        addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl); // read access, privilege level = CPL
+    }
+
+    if( pM->mem.a20m ){
+        addr &= 0xfffff;
+    }
+    if( addr >= EMU_MEM_SIZE ) return 0;
 
     return pM->mem.mem[addr];
 }
 
 uint8_t readDataMemByteAsSV(struct stMachineState *pM, uint32_t addr){
-    if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
         addr = getPhysFromLinear(pM, addr, 1, 0); // read access, privilege level = 0
     }
 
-    if( pM->mem.a20m )          addr  &= 0xfffff;
-    if( addr  >= EMU_MEM_SIZE ) return 0; // addr   = (addr  % EMU_MEM_SIZE);
+    if( pM->mem.a20m ){
+        addr &= 0xfffff;
+    }
+    if( addr >= EMU_MEM_SIZE ) return 0;
 
     return pM->mem.mem[addr];
 }
 
 uint8_t readDataMemByte(struct stMachineState *pM, uint32_t addr){
-    if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
         addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl); // read access, privilege level = CPL
     }
 
-    if( pM->mem.a20m )          addr  &= 0xfffff;
-    if( addr  >= EMU_MEM_SIZE ) return 0; // addr   = (addr  % EMU_MEM_SIZE);
+    if( pM->mem.a20m ){
+        addr &= 0xfffff;
+    }
+    if( addr >= EMU_MEM_SIZE ) return 0;
 
     return pM->mem.mem[addr];
 }
 
 uint16_t readDataMemWord(struct stMachineState *pM, uint32_t addr){ 
-    if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
+
+        if( (addr & 0xfff) + 1 >= 0x1000 ){
+            return (  ((uint16_t)readDataMemByte(pM, addr+0)) |
+                     (((uint16_t)readDataMemByte(pM, addr+1)) << 8) );
+        }
+
         addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl);  // read access, privilege level = CPL
     }
 
@@ -230,30 +313,41 @@ uint16_t readDataMemWord(struct stMachineState *pM, uint32_t addr){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
     }
-    if( addr  >= EMU_MEM_SIZE ) return 0; // addr  = (addr  % EMU_MEM_SIZE);
-    if( addr1 >= EMU_MEM_SIZE ) return 0; // addr1 = (addr1 % EMU_MEM_SIZE);
+    if( addr  >= EMU_MEM_SIZE ) return 0;
+    if( addr1 >= EMU_MEM_SIZE ) return 0;
 
     return ( pM->mem.mem[addr ] | (((uint16_t)pM->mem.mem[addr1])<<8) );
 }
 
 uint32_t readDataMemDoubleWord(struct stMachineState *pM, uint32_t addr){ 
     if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
+
+        if( (addr & 0xfff) + 3 >= 0x1000 ){
+            return (  ((uint32_t)readDataMemByte(pM, addr+0))       |
+                     (((uint32_t)readDataMemByte(pM, addr+1)) << 8) |
+                     (((uint32_t)readDataMemByte(pM, addr+2)) <<16) |
+                     (((uint32_t)readDataMemByte(pM, addr+3)) <<24) );
+        }
+
         addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl);  // read access, privilege level = CPL
     }
 
     uint32_t addr1 = addr + 1;
     uint32_t addr2 = addr + 2;
     uint32_t addr3 = addr + 3;
+
     if( pM->mem.a20m ){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
         addr2 &= 0xfffff;
         addr3 &= 0xfffff;
+
+        if( EMU_MEM_SIZE < (1<<20) ){
+            if( addr3 >= EMU_MEM_SIZE ) return 0;
+        }
+    }else{
+        if( addr3 >= EMU_MEM_SIZE ) return 0;
     }
-    if( addr  >= EMU_MEM_SIZE ) return 0; // addr  = (addr  % EMU_MEM_SIZE);
-    if( addr1 >= EMU_MEM_SIZE ) return 0; // addr1 = (addr1 % EMU_MEM_SIZE);
-    if( addr2 >= EMU_MEM_SIZE ) return 0; // addr2 = (addr2 % EMU_MEM_SIZE);
-    if( addr3 >= EMU_MEM_SIZE ) return 0; // addr3 = (addr3 % EMU_MEM_SIZE);
 
     return (  ((uint32_t)pM->mem.mem[addr ])       |
              (((uint32_t)pM->mem.mem[addr1]) << 8) |
@@ -290,32 +384,10 @@ void updateCursorPosition(struct stMachineState *pM, uint32_t addr){
 #define DISP_COLOR_POS(x,y) (0xb8000 + (2*80*(y))+(2*(x)) + 1)
 #define IS_SJIS_1STBYTE(c)  (((c)>=0x81)&&((c)<=0x9f)) || (((c)>=0xe0)&&((c)<=0xfc))
 
-/*
-static volatile int displayUpdateFlag = 0;
-void *displayUpdateNotify(void *param){
-    while (1) {
-        usleep(10*1000);
-        displayUpdateFlag = 1;
-    }
-    return NULL;
-}
-*/
-
 void updateConsole(struct stMachineState *pM, uint32_t addr){
     unsigned char buf[2];
     unsigned char c;
     unsigned int pos,x,y,xs, kanji1b = 0, kanji1b_prev = 0;
-
-/*
-    static int thread_init = 0;
-    pthread_t tid1;
-    if( ! thread_init ){
-        if (pthread_create(&tid1, NULL, displayUpdateNotify, NULL) != 0) {
-            fprintf(stderr, "pthread_create"); exit(1);
-        }
-        thread_init = 1;
-    }
-*/
 
     if( addr >= 0xb8000 && addr < 0xb8000+4000 ){
         pos = (addr - 0xb8000) % (2*80*25);
@@ -368,12 +440,14 @@ void writeDataMemByteAsSV(struct stMachineState *pM, uint32_t addr, uint8_t  dat
         printf(" 0x%02x -> 0x%02x>\n", pM->mem.mem[addr&0xfffff], data);
     }
     
-    if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
         addr = getPhysFromLinear(pM, addr, 0, 0); // write access, privilege level = 0
     }
 
-    if( pM->mem.a20m ) addr &= 0xfffff;
-    if( addr >= EMU_MEM_SIZE ) return ; //addr = (addr % EMU_MEM_SIZE);
+    if( pM->mem.a20m ){
+        addr &= 0xfffff;
+    }
+    if( addr >= EMU_MEM_SIZE ) return ;
 
     pM->mem.mem[addr] = data;
 
@@ -387,12 +461,14 @@ void writeDataMemByte(struct stMachineState *pM, uint32_t addr, uint8_t  data){
         logfile_printf(LOGCAT_CPU_MEM|LOGLV_ERROR, "<WRITE addr:0x%x, data:0x%x (at [cs:eip] = 0x%04x:0x%04x)\n", addr, data, REG_CS, REG_EIP);
     }
     
-    if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
         addr = getPhysFromLinear(pM, addr, 0, pM->reg.cpl); // write access, privilege level = CPL
     }
 
-    if( pM->mem.a20m ) addr &= 0xfffff;
-    if( addr >= EMU_MEM_SIZE ) return ; //addr = (addr % EMU_MEM_SIZE);
+    if( pM->mem.a20m ){
+        addr &= 0xfffff;
+    }
+    if( addr >= EMU_MEM_SIZE ) return ;
 
     pM->mem.mem[addr] = data;
 
@@ -406,7 +482,12 @@ void writeDataMemWord(struct stMachineState *pM, uint32_t addr, uint16_t data){
         logfile_printf(LOGCAT_CPU_MEM|LOGLV_ERROR, "<WRITE addr:0x%x, data:0x%x (at [cs:eip] = 0x%04x:0x%04x)\n", addr, data, REG_CS, REG_EIP);
     }
 
-    if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
+        if( (addr & 0xfff) + 1 >= 0x1000 ){
+            writeDataMemByte(pM, addr+0, data&0xff);
+            writeDataMemByte(pM, addr+1, data>>8);
+            return;
+        }
         addr = getPhysFromLinear(pM, addr, 0, pM->reg.cpl); // write access, privilege level = CPL
     }
 
@@ -415,8 +496,8 @@ void writeDataMemWord(struct stMachineState *pM, uint32_t addr, uint16_t data){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
     }
-    if( addr  >= EMU_MEM_SIZE ) return ; // addr  = (addr  % EMU_MEM_SIZE);
-    if( addr1 >= EMU_MEM_SIZE ) return ; // addr1 = (addr1 % EMU_MEM_SIZE);
+    if( addr  >= EMU_MEM_SIZE ) return ;
+    if( addr1 >= EMU_MEM_SIZE ) return ;
 
     pM->mem.mem[addr] = data&0xff; pM->mem.mem[addr1] = (data>>8);
 
@@ -431,25 +512,34 @@ void writeDataMemDoubleWord(struct stMachineState *pM, uint32_t addr, uint32_t d
         logfile_printf(LOGCAT_CPU_MEM|LOGLV_ERROR, "<WRITE addr:0x%x, data:0x%x (at [cs:eip] = 0x%04x:0x%04x)\n", addr, data, REG_CS, REG_EIP);
     }
 
-    if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
+    if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
+        if( (addr & 0xfff) + 3 >= 0x1000 ){
+            writeDataMemByte(pM, addr+0,  data     &0xff);
+            writeDataMemByte(pM, addr+1, (data>> 8)&0xff);
+            writeDataMemByte(pM, addr+2, (data>>16)&0xff);
+            writeDataMemByte(pM, addr+3, (data>>24)&0xff);
+            return;
+        }
+
         addr = getPhysFromLinear(pM, addr, 0, pM->reg.cpl); // write access, privilege level = CPL
     }
 
     uint32_t addr1 = addr + 1;
     uint32_t addr2 = addr + 2;
     uint32_t addr3 = addr + 3;
+
     if( pM->mem.a20m ){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
         addr2 &= 0xfffff;
         addr3 &= 0xfffff;
+
+        if( EMU_MEM_SIZE < (1<<20) ){
+            if( addr3 >= EMU_MEM_SIZE ) return;
+        }
+    }else{
+        if( addr3 >= EMU_MEM_SIZE ) return;
     }
-    /*
-    if( addr  >= EMU_MEM_SIZE ) return; // addr  = (addr  % EMU_MEM_SIZE);
-    if( addr1 >= EMU_MEM_SIZE ) return; // addr1 = (addr1 % EMU_MEM_SIZE);
-    if( addr2 >= EMU_MEM_SIZE ) return; // addr2 = (addr2 % EMU_MEM_SIZE);
-    */
-    if( addr3 >= EMU_MEM_SIZE ) return; // addr3 = (addr3 % EMU_MEM_SIZE);
 
     pM->mem.mem[addr ] = ( data     &0xff);
     pM->mem.mem[addr1] = ((data>> 8)&0xff);

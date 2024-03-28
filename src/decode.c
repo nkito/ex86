@@ -200,10 +200,13 @@ uint32_t decode_imm16(struct stMachineState *pM, uint32_t pointer, uint32_t *val
     return 2;
 }
 uint32_t decode_imm32(struct stMachineState *pM, uint32_t pointer, uint32_t *val){
+	/*
     *val  = fetchCodeDataByte(pM, pointer+0);
     *val |= ((uint32_t)fetchCodeDataByte(pM, pointer+1))<<8;
     *val |= ((uint32_t)fetchCodeDataByte(pM, pointer+2))<<16;
     *val |= ((uint32_t)fetchCodeDataByte(pM, pointer+3))<<24;
+	*/
+	*val = fetchCodeDataDoubleWord(pM, pointer);
     return 4;
 }
 
@@ -217,8 +220,11 @@ uint32_t decode_imm(struct stMachineState *pM, uint32_t pointer, uint8_t width, 
 			*val |= ((uint32_t)fetchCodeDataByte(pM, pointer+1))<< 8;
 
 			if( PREFIX_OP32 ){
+				/*
 				*val |= ((uint32_t)fetchCodeDataByte(pM, pointer+2))<<16;
 				*val |= ((uint32_t)fetchCodeDataByte(pM, pointer+3))<<24;
+				*/
+				*val |= fetchCodeDataWord(pM, pointer+2)<<16;
 				return 4;
 			}else{
 				return 2;
@@ -235,19 +241,25 @@ uint32_t decode_imm(struct stMachineState *pM, uint32_t pointer, uint8_t width, 
 }
 
 uint32_t decode_immAddr(struct stMachineState *pM, uint32_t pointer, uint8_t width, struct stOpl *pOp1){
+	/*
 	uint8_t data_lo = fetchCodeDataByte(pM, pointer);
 	uint8_t data_hi = fetchCodeDataByte(pM, pointer+1);
+	*/
+	uint16_t data = fetchCodeDataWord(pM, pointer);
 
 	pOp1->type = OpTypeMemWithSeg;
 	pOp1->reg  = SEGREG_NUM_DS;
 	pOp1->width= width;
 	if( PREFIX_SEG != PREF_SEG_UNSPECIFIED ) pOp1->reg = PREFIX_SEG;
 
-	pOp1->addr = ((((uint16_t)data_hi) << 8) | data_lo);
+	pOp1->addr = data; // ((((uint16_t)data_hi) << 8) | data_lo);
 
 	if( PREFIX_AD32 ){
+		pOp1->addr |= fetchCodeDataWord(pM, pointer+2)<<16;
+		/*
 		pOp1->addr |= ((uint32_t)fetchCodeDataByte(pM, pointer+2)) << 16;
 		pOp1->addr |= ((uint32_t)fetchCodeDataByte(pM, pointer+3)) << 24;
+		*/
 		return 4;
 	}
 
