@@ -93,10 +93,11 @@ void writeTimerReg(struct stMachineState *pM, uint8_t addr, uint8_t data){
                     exit(2);
                 }
 
-                timer.it_value.tv_sec = 0;
-                timer.it_value.tv_usec = pM->mem.ioTimer.counter[0];
-                timer.it_interval.tv_sec = 0;
-                timer.it_interval.tv_usec = pM->mem.ioTimer.counter[0];
+                long new_interval = (pM->mem.ioTimer.counter[0] * (1000000/100)) / (I8254_CLOCK_FREQ/100);
+                timer.it_value.tv_sec     = 0;
+                timer.it_value.tv_usec    = new_interval;
+                timer.it_interval.tv_sec  = 0;
+                timer.it_interval.tv_usec = new_interval;
                 if (setitimer(ITIMER_REAL, &timer, &old_timer) == -1) {
                     logfile_printf(LOGCAT_IO_TIMER | LOGLV_ERROR, "Timer: timer setting error (%d)\n", addr);
                     logfile_close();

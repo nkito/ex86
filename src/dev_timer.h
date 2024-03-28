@@ -13,6 +13,7 @@
 #define I8254_CONTROL_BCD_BIT  0
 #define I8254_CONTROL_BCD_MASK (1<<I8254_CONTROL_BCD_BIT)
 
+#define I8254_CLOCK_FREQ 1193180
 
 void    writeTimerReg(struct stMachineState *pM, uint8_t addr, uint8_t data);
 uint8_t readTimerReg(struct stMachineState *pM, uint8_t addr);

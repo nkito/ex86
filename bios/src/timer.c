@@ -64,12 +64,10 @@ static unsigned long pc_timer_raw100 = 0;
 static long TickOffset = 0;
 
 void initTimer(void){
-	// PSCLOCK -> 1MHz
-	//systemOutByte(CLOCK_FREQUENCY_MHZ-2, IOADDR_CLKPRS);
+	unsigned int count = PIT_CLOCK_FREQ/100; // 10ms interval
 
 	// Timer Setting (ch0)
 	systemOutByte(0x34      , IOADDR_TCU_BASE+3); // write TMD (timer 0, l->h, mode 2, bin)
-	unsigned int count = 1000*10;
 	systemOutByte(count&0xff, IOADDR_TCU_BASE+0); // counter value (low)
 	systemOutByte(count>>8  , IOADDR_TCU_BASE+0); // counter value (high)
 

@@ -38,42 +38,42 @@ uint8_t readCMOSReg(struct stMachineState *pM, struct stIO_CMOS *pCMOS, uint32_t
 
     // RTC
     if( pCMOS->reg_addr == 0x00 ){ // Seconds
-        res = int8toBCD(pCMOS->ptm->tm_sec);
+        res = int8toBCD(pCMOS->prevTM.tm_sec);
         return res;
     }
     if( pCMOS->reg_addr == 0x02 ){ // Minites
-        res = int8toBCD(pCMOS->ptm->tm_min);
+        res = int8toBCD(pCMOS->prevTM.tm_min);
         return res;
     }
     if( pCMOS->reg_addr == 0x04 ){ // Hours
-        res =  int8toBCD(pCMOS->ptm->tm_hour);
+        res =  int8toBCD(pCMOS->prevTM.tm_hour);
         return res;
     }
     if( pCMOS->reg_addr == 0x06 ){ // Weekday
-        res =  int8toBCD(pCMOS->ptm->tm_wday + 1); // 1=Sunday
+        res =  int8toBCD(pCMOS->prevTM.tm_wday + 1); // 1=Sunday
         return res;
     }
     if( pCMOS->reg_addr == 0x07 ){ // Day of Month
-        res =  int8toBCD(pCMOS->ptm->tm_mday);
+        res =  int8toBCD(pCMOS->prevTM.tm_mday);
         return res;
     }
     if( pCMOS->reg_addr == 0x08 ){ // Month
-        res =  int8toBCD(pCMOS->ptm->tm_mon + 1);
+        res =  int8toBCD(pCMOS->prevTM.tm_mon + 1);
         return res;
     }
     if( pCMOS->reg_addr == 0x09 ){ // Year
-        res = int8toBCD(pCMOS->ptm->tm_year % 100);
+        res = int8toBCD(pCMOS->prevTM.tm_year % 100);
         return res;
     }
 
     if( pCMOS->reg_addr == 0x0A ){ // RTC status register A
         uint8_t flag = 0;
-        uint8_t sec = pCMOS->ptm->tm_sec;
+        uint8_t sec = pCMOS->prevTM.tm_sec;
         time_t  t;
 
         time(&t);
-        pCMOS->ptm = localtime(&t);
-        if( sec != pCMOS->ptm->tm_sec ){
+        localtime_r(&t, &(pCMOS->prevTM));
+        if( sec != pCMOS->prevTM.tm_sec ){
             flag = 0x80; // update flag
         }
         res =  (flag | 2<<4 | 6);
@@ -89,7 +89,7 @@ uint8_t readCMOSReg(struct stMachineState *pM, struct stIO_CMOS *pCMOS, uint32_t
     return 0;
 }
 
-void   writeCMOSReg(struct stMachineState *pM, struct stIO_CMOS *pCMOS, uint32_t addr, uint8_t data){
+void writeCMOSReg(struct stMachineState *pM, struct stIO_CMOS *pCMOS, uint32_t addr, uint8_t data){
     time_t  t;
 
     if( (addr&IOADDR_CMOS_MASK) == 1 ){
@@ -100,5 +100,5 @@ void   writeCMOSReg(struct stMachineState *pM, struct stIO_CMOS *pCMOS, uint32_t
     pCMOS->reg_addr = data;
 
     time(&t);
-    pCMOS->ptm = localtime(&t);
+    localtime_r(&t, &(pCMOS->prevTM));
 }

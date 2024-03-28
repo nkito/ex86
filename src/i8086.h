@@ -257,7 +257,7 @@ struct periDMAPageAddr{
 
 struct stIO_CMOS{
 	uint8_t reg_addr;
-	struct tm *ptm;
+	struct tm prevTM;
 };
 
 struct stIO_UART{
