@@ -70,79 +70,87 @@ void flushTLB(struct stMachineState *pM){
 
 #define PF_ERROR_CODE(US, WR, PRESENT) (((US)? 4 : 0) | ((WR)? 2:0) | ((PRESENT)? 1:0))
 
+
+#define PTE_BIT_PRESENT  0
+#define PTE_BIT_RW       1
+#define PTE_BIT_UserSvr  2
+#define PTE_BIT_ACCESSED 5
+#define PTE_BIT_DIRTY    6
+
+
+#define PAGE_PRESENT(pte)        ((pte) & (1<<PTE_BIT_PRESENT))
+#define PAGE_IS_WRITABLE(pte)    ((pte) & (1<<PTE_BIT_RW))
+#define PAGE_IS_USER_LEVEL(pte)  ((pte) & (1<<PTE_BIT_UserSvr))
+#define PAGE_IS_ACCESSED(pte)    ((pte) & (1<<PTE_BIT_ACCESSED))
+#define PAGE_IS_DIRTY(pte)       ((pte) & (1<<PTE_BIT_DIRTY))
+
 uint32_t getPhysFromLinear(struct stMachineState *pM, uint32_t linear, uint8_t readAcc, uint8_t pl){
-    uint32_t dir=0, pde=0, ptable=0, pte=0, paddr=0;
+    uint32_t dir=0, pde=0, ptable=0, paddr=0;
     uint32_t i, tlb_entry, entry_idx;
-    
+    uint32_t pte=0, new_pte=0, effective_pte;
+
     tlb_entry = ((linear >> (32-TLB_ENTRY_BITS)) & ((1<<TLB_ENTRY_BITS)-1));
     for(i=0; i<TLB_NASOC; i++){
         if( pM->reg.tlb[tlb_entry].pte[i]  != 0 &&
             pM->reg.tlb[tlb_entry].addr[i] == (linear & 0xfffff000) &&
-            (readAcc || (pM->reg.tlb[tlb_entry].pte[i] & 0x40)) ){
-            pte = pM->reg.tlb[tlb_entry].pte[i];
+            (readAcc || PAGE_IS_DIRTY(pM->reg.tlb[tlb_entry].pte[i])) ){
+            effective_pte = pM->reg.tlb[tlb_entry].pte[i];
             goto TLB_hit;
         }
     }
 
-    dir     = (REG_CR3 & 0xfffff000); // pM->reg.cr[3];
+    dir     = (REG_CR3 & 0xfffff000);
     dir    += ( ((linear >> 22) & ((1<<10)-1)) << 2);
 
     pde     = readPhysMemDoubleWord(pM, dir);
     ptable  = (pde & 0xfffff000);
     ptable += ( ((linear >> 12) & ((1<<10)-1)) << 2);
 
-    if(0==(pde&1)){ // check P (Present) bit
+    if( ! PAGE_PRESENT(pde) ){ // check P (Present) bit
         pM->reg.cr[2]  = linear;
         pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 0);
         pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
         goto fault_pf;
     }
-    if( 0==(pde&4) && pl != 0 ){ // check U/S (user/supervisor) bit
-        pM->reg.cr[2]  = linear;
-        pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 1);
-        pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
-        goto fault_pf;
-    }
-    if( 0==(pde&2) && !readAcc && pl != 0 ){ // check R/W bit
-        pM->reg.cr[2]  = linear;
-        pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 1);
-        pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
-        goto fault_pf;
+
+    if( ! PAGE_IS_ACCESSED(pde) ){ // set A (Access) bit and D (Dirty) bit
+        // The dirty bit in directory entries is undefined.
+        // So this code does not reflesh the bit once the accessed bit is set.
+        writePhysMemByte(pM, dir, readAcc ? (pde|(1<<PTE_BIT_ACCESSED)) : (pde|(1<<PTE_BIT_ACCESSED)|(1<<PTE_BIT_DIRTY)) );
     }
 
+    pte           = readPhysMemDoubleWord(pM, ptable);
+    new_pte       = readAcc ? (pte|(1<<PTE_BIT_ACCESSED)) : (pte|(1<<PTE_BIT_ACCESSED)|(1<<PTE_BIT_DIRTY));
+    effective_pte = new_pte;
 
-    if(0==(pde&0x20)){ // set A (Access) bit and D (Dirty) bit
-        writePhysMemByte(pM, dir, readAcc ? (pde|0x20) : (pde|0x20|0x40) );
-    }
-
-    pte     = readPhysMemDoubleWord(pM, ptable);
+    if( ! PAGE_IS_WRITABLE(pde)   && PAGE_IS_WRITABLE(pte)  ) effective_pte &= (~(1<<PTE_BIT_RW));
+    if( ! PAGE_IS_USER_LEVEL(pde) && PAGE_IS_USER_LEVEL(pte)) effective_pte &= (~(1<<PTE_BIT_UserSvr));
 
 TLB_hit:
-    paddr   = (pte & 0xfffff000);
+    paddr   = (effective_pte & 0xfffff000);
     paddr  += (linear & 0xfff);
 
-    if(0 == (pte&1)){
+    if( ! PAGE_PRESENT(effective_pte) ){
         pM->reg.cr[2]  = linear;
         pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 0);
         pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
         goto fault_pf;
     }
-    if( 0==(pte&4) && pl != 0 ){ // check U/S (user/supervisor) bit
+    if( (! PAGE_IS_USER_LEVEL(effective_pte)) && pl != 0 ){ // check U/S (user/supervisor) bit
         pM->reg.cr[2]  = linear;
         pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 1);
         pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
         goto fault_pf;
     }
-    if( 0==(pte&2) && !readAcc && pl != 0 ){ // check R/W bit
+    if( (! PAGE_IS_WRITABLE(effective_pte)) && !readAcc && pl != 0 ){ // check R/W bit
         pM->reg.cr[2]  = linear;
         pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 1);
         pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
         goto fault_pf;
     }
 
-    if(0==(pte&0x20)){ // set A (Access) bit and D (Dirty) bit
-        pte = readAcc ? (pte|0x20) : (pte|0x20|0x40);
-        writePhysMemByte(pM, ptable, pte);
+    if( pte != new_pte ){ // update A (Access) bit and D (Dirty) bit
+        writePhysMemByte(pM, ptable, new_pte);
     }
 
     // Update the TLB
@@ -165,7 +173,7 @@ TLB_hit:
  
 tlb_reflesh:
     pM->reg.tlb[tlb_entry].addr[entry_idx] = (linear & 0xfffff000);
-    pM->reg.tlb[tlb_entry].pte [entry_idx] = pte;
+    pM->reg.tlb[tlb_entry].pte [entry_idx] = effective_pte;
 
 tlb_reflesh_exit:
 
