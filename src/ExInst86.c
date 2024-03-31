@@ -1203,11 +1203,7 @@ int exDIV32(struct stMachineState *pM, uint32_t pointer){
             (INST_W_BIT == 0 && quou > 0xff) ){
             // overflow
             logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : divide 0 (3) %lx/%lx (CS:EIP %x:%x)\n", numr, divr, pM->reg.current_cs, pM->reg.current_eip);
-            if( pM->emu.emu_cpu == EMU_CPU_8086 ){
-                enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP);
-            }else{
-                enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
-            }
+            enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
         }else{
             if( INST_W_BIT ){
                 REG_EAX = quou;
@@ -1226,11 +1222,7 @@ int exDIV32(struct stMachineState *pM, uint32_t pointer){
             (INST_W_BIT == 0 && quos > 0 && quos > 0x7f) ||
             (INST_W_BIT == 0 && quos < 0 && quos < 0x80) ){
             // overflow
-            if( pM->emu.emu_cpu == EMU_CPU_8086 ){
-                enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP);
-            }else{
-                enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
-            }
+            enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
         }else{
             if( INST_W_BIT ){
                 REG_EAX = quos;
@@ -1300,6 +1292,8 @@ int exDIV(struct stMachineState *pM, uint32_t pointer){
             (INST_W_BIT == 0 && quou > 0xff) ){
             // overflow
             if( pM->emu.emu_cpu == EMU_CPU_8086 ){
+                // i8086 pushes the address of the next instruction.
+                // See: https://stackoverflow.com/questions/71070990/x86-division-exception-return-address
                 enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP);
             }else{
                 enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
@@ -1323,6 +1317,8 @@ int exDIV(struct stMachineState *pM, uint32_t pointer){
             (INST_W_BIT == 0 && quos < 0 && quos < 0x80) ){
             // overflow
             if( pM->emu.emu_cpu == EMU_CPU_8086 ){
+                // i8086 pushes the address of the next instruction.
+                // See: https://stackoverflow.com/questions/71070990/x86-division-exception-return-address
                 enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP);
             }else{
                 enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
@@ -2052,7 +2048,7 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
                 }
 
                 // Save current register values and clear busy flag of the TSS
-                unloadTaskRegister(pM);
+                unloadTaskRegister(pM, 1+size+2);
 
                 // Change the task register and load register value from TSS
                 pM->reg.tr       = val2;
@@ -2064,11 +2060,11 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
                 logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "LJMP %x:%x   (TRAPGATE, %x)\n", val2, val, pointer);
                 return EX_RESULT_UNKNOWN;
             }else{
-                updateSegReg(pM, SEGREG_NUM_CS, val2); // REG_CS = val2;
+                updateSegReg(pM, SEGREG_NUM_CS, val2);
                 if(DEBUG) EXI_LOG_PRINTF("LJMP %x:%x\n", val2, val);
             }
         }else{
-            updateSegReg(pM, SEGREG_NUM_CS, val2); // REG_CS = val2;
+            updateSegReg(pM, SEGREG_NUM_CS, val2);
             if(DEBUG) EXI_LOG_PRINTF("LJMP %x:%x\n", val2, val);
         }
 
@@ -2083,7 +2079,7 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
         }else{
             REG_IP  = readOpl(pM, &op); op.addr += 2;
         }
-        updateSegReg(pM, SEGREG_NUM_CS, readOpl(pM,  &op)); // REG_CS = readOpl(pM,  &op);
+        updateSegReg(pM, SEGREG_NUM_CS, readOpl(pM,  &op));
 
     }else{
         return EX_RESULT_UNKNOWN;

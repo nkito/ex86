@@ -191,8 +191,8 @@ void mainloop32_inner(struct stMachineState *pM){
 		PREFIX_OP32 = CODESEG_D_BIT && !(pM->reg.eflags & (1<<EFLAGS_BIT_VM)) ? 1 : 0;
 
 		pointer = REG_CS_BASE + REG_EIP;
-		pM->reg.current_cs  = REG_CS;
-		pM->reg.current_eip = REG_EIP;
+		pM->reg.current_cs  = REG_CS;    // To save the instruction pointer including prefix
+		pM->reg.current_eip = REG_EIP;   // To save the instruction pointer including prefix
 		pM->reg.fault = 0;
 
 		pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);

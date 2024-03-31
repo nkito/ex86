@@ -224,8 +224,8 @@ void mainloop16(struct stMachineState *pM){
 		}
 
 		pointer = MEMADDR(REG_CS, REG_IP);
-		pM->reg.current_cs  = REG_CS;
-		pM->reg.current_eip = REG_EIP;
+		pM->reg.current_cs  = REG_CS;    // To save the instruction pointer including prefix
+		pM->reg.current_eip = REG_IP;    // To save the instruction pointer including prefix
 
 		PREFIX_SEG  = PREF_SEG_UNSPECIFIED;
 		PREFIX_REPZ = PREF_REP_UNSPECIFIED;

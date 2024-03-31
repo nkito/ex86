@@ -288,7 +288,7 @@ static uint32_t readDWfromMem(struct stMachineState *pM, uint32_t addr){
 
 
 /* Clear BUSY flag of current TSS descripter (specified by TR) and save state into TSS */
-void unloadTaskRegister  (struct stMachineState *pM){
+void unloadTaskRegister  (struct stMachineState *pM, uint32_t instLength){
 	uint32_t base, limit;
 
 	if( pM->reg.tr & 0x4 ){
@@ -317,6 +317,9 @@ void unloadTaskRegister  (struct stMachineState *pM){
 	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_FS,  pM->reg.fs);
 	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_GS,  pM->reg.gs);
 	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_EFLAGS, pM->reg.eflags);
+
+	// It points the instruction after the one that caused the task switch.
+	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_EIP, pM->reg.eip + instLength);
 }
 
 void loadTaskState(struct stMachineState *pM){
@@ -326,6 +329,9 @@ void loadTaskState(struct stMachineState *pM){
 
 	pM->reg.eflags = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_EFLAGS);
 	pM->reg.cr[3]  = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_CR3);
+
+	pM->reg.ldtr = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_LDT);
+	loadRawSegmentDesc(pM, pM->reg.ldtr, &(pM->reg.descc_ldt));
 
 	pM->reg.eax = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_EAX);
 	pM->reg.ecx = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_ECX);
@@ -359,12 +365,11 @@ void loadTaskState(struct stMachineState *pM){
 static void loadGateDescData(struct stMachineState *pM, uint32_t base, uint32_t limit, uint16_t selector, struct stGateDesc *pGD){
 	if( selector & 7 ){
 		logfile_printf(LOGCAT_CPU_MEM | LOGLV_INFO3, "%s: selector = %x CS:EIP = %x:%x (%x)\n", __func__, selector, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
-//		DEBUG = 1;
 	}
 
 	selector &= (~7);
 
-	if( selector >= limit){
+	if( selector >= limit ){
 		pM->reg.fault = (1<<FAULTNUM_UNKNOWN);
 		return ;
 	}
