@@ -77,12 +77,17 @@ void flushTLB(struct stMachineState *pM){
 #define PTE_BIT_ACCESSED 5
 #define PTE_BIT_DIRTY    6
 
+#define PTE_ADDR_MASK    0xfffff000
+#define PAGE_OFFSET_MASK 0x00000fff
 
 #define PAGE_PRESENT(pte)        ((pte) & (1<<PTE_BIT_PRESENT))
 #define PAGE_IS_WRITABLE(pte)    ((pte) & (1<<PTE_BIT_RW))
 #define PAGE_IS_USER_LEVEL(pte)  ((pte) & (1<<PTE_BIT_UserSvr))
 #define PAGE_IS_ACCESSED(pte)    ((pte) & (1<<PTE_BIT_ACCESSED))
 #define PAGE_IS_DIRTY(pte)       ((pte) & (1<<PTE_BIT_DIRTY))
+
+#define IS_USER_LEVEL_PRIVLEVEL(pl)  ((pl)==3)
+
 
 uint32_t getPhysFromLinear(struct stMachineState *pM, uint32_t linear, uint8_t readAcc, uint8_t pl){
     uint32_t dir=0, pde=0, ptable=0, paddr=0;
@@ -92,23 +97,23 @@ uint32_t getPhysFromLinear(struct stMachineState *pM, uint32_t linear, uint8_t r
     tlb_entry = ((linear >> (32-TLB_ENTRY_BITS)) & ((1<<TLB_ENTRY_BITS)-1));
     for(i=0; i<TLB_NASOC; i++){
         if( pM->reg.tlb[tlb_entry].pte[i]  != 0 &&
-            pM->reg.tlb[tlb_entry].addr[i] == (linear & 0xfffff000) &&
+            pM->reg.tlb[tlb_entry].addr[i] == (linear & PTE_ADDR_MASK) &&
             (readAcc || PAGE_IS_DIRTY(pM->reg.tlb[tlb_entry].pte[i])) ){
             effective_pte = pM->reg.tlb[tlb_entry].pte[i];
             goto TLB_hit;
         }
     }
 
-    dir     = (REG_CR3 & 0xfffff000);
+    dir     = (REG_CR3 & PTE_ADDR_MASK);
     dir    += ( ((linear >> 22) & ((1<<10)-1)) << 2);
 
     pde     = readPhysMemDoubleWord(pM, dir);
-    ptable  = (pde & 0xfffff000);
+    ptable  = (pde & PTE_ADDR_MASK);
     ptable += ( ((linear >> 12) & ((1<<10)-1)) << 2);
 
     if( ! PAGE_PRESENT(pde) ){ // check P (Present) bit
         pM->reg.cr[2]  = linear;
-        pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 0);
+        pM->reg.error_code = PF_ERROR_CODE(IS_USER_LEVEL_PRIVLEVEL(pl), !readAcc, 0);
         pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
         goto fault_pf;
     }
@@ -123,28 +128,32 @@ uint32_t getPhysFromLinear(struct stMachineState *pM, uint32_t linear, uint8_t r
     new_pte       = readAcc ? (pte|(1<<PTE_BIT_ACCESSED)) : (pte|(1<<PTE_BIT_ACCESSED)|(1<<PTE_BIT_DIRTY));
     effective_pte = new_pte;
 
-    if( ! PAGE_IS_WRITABLE(pde)   && PAGE_IS_WRITABLE(pte)  ) effective_pte &= (~(1<<PTE_BIT_RW));
-    if( ! PAGE_IS_USER_LEVEL(pde) && PAGE_IS_USER_LEVEL(pte)) effective_pte &= (~(1<<PTE_BIT_UserSvr));
+    if( ! PAGE_IS_WRITABLE(pde)   && PAGE_IS_WRITABLE(pte)  ){
+        effective_pte &= (~(1<<PTE_BIT_RW));
+    }
+    if( ! PAGE_IS_USER_LEVEL(pde) && PAGE_IS_USER_LEVEL(pte)){
+        effective_pte &= (~(1<<PTE_BIT_UserSvr));
+    }
 
 TLB_hit:
-    paddr   = (effective_pte & 0xfffff000);
-    paddr  += (linear & 0xfff);
+    paddr   = (effective_pte & PTE_ADDR_MASK);
+    paddr  += (linear & PAGE_OFFSET_MASK);
 
     if( ! PAGE_PRESENT(effective_pte) ){
         pM->reg.cr[2]  = linear;
-        pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 0);
+        pM->reg.error_code = PF_ERROR_CODE(IS_USER_LEVEL_PRIVLEVEL(pl), !readAcc, 0);
         pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
         goto fault_pf;
     }
-    if( (! PAGE_IS_USER_LEVEL(effective_pte)) && pl != 0 ){ // check U/S (user/supervisor) bit
+    if( (! PAGE_IS_USER_LEVEL(effective_pte)) && IS_USER_LEVEL_PRIVLEVEL(pl) ){ // check U/S (user/supervisor) bit
         pM->reg.cr[2]  = linear;
-        pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 1);
+        pM->reg.error_code = PF_ERROR_CODE(IS_USER_LEVEL_PRIVLEVEL(pl), !readAcc, 1);
         pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
         goto fault_pf;
     }
-    if( (! PAGE_IS_WRITABLE(effective_pte)) && !readAcc && pl != 0 ){ // check R/W bit
+    if( (! PAGE_IS_WRITABLE(effective_pte)) && !readAcc && IS_USER_LEVEL_PRIVLEVEL(pl) ){ // check R/W bit
         pM->reg.cr[2]  = linear;
-        pM->reg.error_code = PF_ERROR_CODE(pl!=0, !readAcc, 1);
+        pM->reg.error_code = PF_ERROR_CODE(IS_USER_LEVEL_PRIVLEVEL(pl), !readAcc, 1);
         pM->reg.fault |= (1<<FAULTNUM_PAGEFAULT);
         goto fault_pf;
     }
@@ -155,7 +164,7 @@ TLB_hit:
 
     // Update the TLB
     for(i=0; i<TLB_NASOC; i++){
-        if( pM->reg.tlb[tlb_entry].addr[i] == (linear & 0xfffff000) ){
+        if( pM->reg.tlb[tlb_entry].addr[i] == (linear & PTE_ADDR_MASK) ){
             goto tlb_reflesh_exit;
         }
         if( pM->reg.tlb[tlb_entry].pte[i] == 0 ){
@@ -172,7 +181,7 @@ TLB_hit:
     entry_idx = 0;
  
 tlb_reflesh:
-    pM->reg.tlb[tlb_entry].addr[entry_idx] = (linear & 0xfffff000);
+    pM->reg.tlb[tlb_entry].addr[entry_idx] = (linear & PTE_ADDR_MASK);
     pM->reg.tlb[tlb_entry].pte [entry_idx] = effective_pte;
 
 tlb_reflesh_exit:

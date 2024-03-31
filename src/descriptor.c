@@ -321,6 +321,9 @@ void unloadTaskRegister  (struct stMachineState *pM){
 
 void loadTaskState(struct stMachineState *pM){
 
+	// TLB should be flushed before loading a new value for CR3
+	flushTLB(pM);
+
 	pM->reg.eflags = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_EFLAGS);
 	pM->reg.cr[3]  = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_CR3);
 
