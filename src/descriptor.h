@@ -73,7 +73,7 @@ void loadDataSegmentDesc (struct stMachineState *pM, uint16_t selector, struct s
 void loadStackSegmentDesc(struct stMachineState *pM, uint16_t selector, struct stDataDesc *pDD);
 void loadCodeSegmentDesc (struct stMachineState *pM, uint16_t selector, struct stCodeDesc *pCD);
 void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct stRawSegmentDesc *pRS);
-void unloadTaskRegister  (struct stMachineState *pM, uint32_t instLength);
+void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP);
 void loadTaskState       (struct stMachineState *pM);
 
 

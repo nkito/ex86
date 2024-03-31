@@ -2021,8 +2021,11 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
     }else if( inst0 == 0xea ){
         // Direct intersegment
         uint32_t size;
+        uint32_t next_eip;
         size = decode_imm(pM, pointer+1     , INST_W_WORDACC, &val,  INST_S_NOSIGNEX);
         decode_imm16     (pM, pointer+1+size,                 &val2);
+
+        next_eip = REG_EIP + 1 + size + 2;
         if( PREFIX_OP32 ){
             REG_EIP = val;
         }else{
@@ -2048,7 +2051,7 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
                 }
 
                 // Save current register values and clear busy flag of the TSS
-                unloadTaskRegister(pM, 1+size+2);
+                unloadTaskRegister(pM, next_eip);
 
                 // Change the task register and load register value from TSS
                 pM->reg.tr       = val2;

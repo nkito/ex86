@@ -288,7 +288,7 @@ static uint32_t readDWfromMem(struct stMachineState *pM, uint32_t addr){
 
 
 /* Clear BUSY flag of current TSS descripter (specified by TR) and save state into TSS */
-void unloadTaskRegister  (struct stMachineState *pM, uint32_t instLength){
+void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP){
 	uint32_t base, limit;
 
 	if( pM->reg.tr & 0x4 ){
@@ -319,7 +319,7 @@ void unloadTaskRegister  (struct stMachineState *pM, uint32_t instLength){
 	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_EFLAGS, pM->reg.eflags);
 
 	// It points the instruction after the one that caused the task switch.
-	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_EIP, pM->reg.eip + instLength);
+	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_EIP, nextEIP);
 }
 
 void loadTaskState(struct stMachineState *pM){
