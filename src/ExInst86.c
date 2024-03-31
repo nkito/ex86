@@ -135,8 +135,6 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
             updateSegReg(pM, SEGREG_NUM_ES, 0);
         }
 
-//printf("hoge3 (TR %x, newss:newsp = %x:%x)\n", pM->reg.tr, new_ss, new_esp);
-
         PUSH_TO_STACK( old_ss );
         PUSH_TO_STACK( old_esp  );
     }
@@ -2049,7 +2047,9 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
 
                 if((RS.limit < 0x67)                       || 
                     pM->reg.cpl > SEGACCESS_DPL(RS.access) ||
-                    RPL         > SEGACCESS_DPL(RS.access) ){ ENTER_TS(val2); }
+                    RPL         > SEGACCESS_DPL(RS.access) ){
+                    ENTER_TS(val2);
+                }
 
                 // Save current register values and clear busy flag of the TSS
                 unloadTaskRegister(pM);
@@ -2057,7 +2057,7 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
                 // Change the task register and load register value from TSS
                 pM->reg.tr       = val2;
                 pM->reg.descc_tr = RS;
-                pM->reg.cr[0]   |= CR0_BIT_TS;
+                pM->reg.cr[0]   |= (1<<CR0_BIT_TS);
                 loadTaskState(pM);
 
             }else if( SEGACCESS_IS_CALLGATE32(access) ){
@@ -2114,7 +2114,7 @@ int exRET(struct stMachineState *pM, uint32_t pointer){
 
     }else if( inst0 == 0xc2 || inst0 == 0xca ){
         // adding immed to SP
-        //decode_imm(pM, pointer+1, INST_W_WORDACC, &val,  INST_S_NOSIGNEX);
+
         decode_imm16(pM, pointer+1, &val);
 
         if( PREFIX_OP32 ){ POP_FROM_STACK( REG_EIP );                  }
