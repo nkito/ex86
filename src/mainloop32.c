@@ -269,33 +269,34 @@ void mainloop32_inner(struct stMachineState *pM){
 			enterINT(pM, INTNUM_SINGLE_STEP, REG_CS, REG_EIP);
 
 
-		}else if( (pM->emu.nExecInsts&0x0f)==0 && pM->mem.ioTimer.counter[0] != 0 && ((REG_FLAGS & (1<<FLAGS_BIT_IF)) != 0) ){
-			if( tflag ){
+		}else if( REG_FLAGS & (1<<FLAGS_BIT_IF) ){
+			if( pM->mem.ioTimer.counter[0] != 0 && 0 == ((pM->mem.ioPICmain.ocw1) & 1) && tflag ){
 				tflag = 0;
 				if( ! DEBUG ){
-					if( 0 == ((pM->mem.ioPICmain.ocw1) & 1) ){
-						enterINT(pM, (pM->mem.ioPICmain.icw2)&0xf8, REG_CS, REG_EIP);
+					enterINT(pM, (pM->mem.ioPICmain.icw2)&0xf8, REG_CS, REG_EIP);
+				}
+			}else if( pM->mem.ioFDC.irq && 0 == ((pM->mem.ioPICmain.ocw1) & (1<<6)) ){
+				logfile_printf(LOGLEVEL_EMU_INFO, "FDC interrupt \n");
+				enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+6, REG_CS, REG_EIP);
+				pM->mem.ioFDC.irq = 0;
+
+			}else if( pM->mem.ioUART1.int_enable && 0 == ((pM->mem.ioPICmain.ocw1) & (1<<3)) ){
+				if( (pM->emu.nExecInsts&0x0f) == 0 && pM->mem.ioUART1.int_enable & 0x2 ){
+					// Once this interrupt is enabled, its handler will be called continuously and
+					// cannot be stop in interrupt-enabled conditions.
+					// Thus, the former condition is introduced.
+					logfile_printf(LOGLEVEL_EMU_INFO, "UART interrupt (tx ready) \n");
+					enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP);
+
+				}else if( (pM->mem.ioUART1.int_enable & 0x1) ){
+					if( ++(pM->mem.ioUART1.chkCntForInt) > 100 ){
+						readUARTReg(pM, &(pM->mem.ioUART1), IOADDR_COM1_BASE + UART_REG_LINESTAT);
+					}
+					if( pM->mem.ioUART1.buffered ){
+						logfile_printf(LOGLEVEL_EMU_INFO, "UART interrupt (rx ready) \n");
+						enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP);
 					}
 				}
-			}
-		}else if( pM->mem.ioFDC.irq && (REG_FLAGS & (1<<FLAGS_BIT_IF)) && 0 == ((pM->mem.ioPICmain.ocw1) & (1<<6)) ){
-			logfile_printf(LOGLEVEL_EMU_INFO, "FDC interrupt \n");
-			enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+6, REG_CS, REG_EIP);
-			pM->mem.ioFDC.irq = 0;
-
-		}else if( pM->mem.ioUART1.int_enable && (REG_FLAGS & (1<<FLAGS_BIT_IF)) && 0 == ((pM->mem.ioPICmain.ocw1) & (1<<3)) ){
-			if( (pM->mem.ioUART1.int_enable & 0x1) ){
-				if( ++(pM->mem.ioUART1.chkCntForInt) > 100 ){
-					readUARTReg(pM, &(pM->mem.ioUART1), IOADDR_COM1_BASE + UART_REG_LINESTAT);
-				}
-				if( pM->mem.ioUART1.buffered ){
-					logfile_printf(LOGLEVEL_EMU_INFO, "UART interrupt (rx ready) \n");
-					enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP);
-				}
-			}
-			if( pM->mem.ioUART1.int_enable & 0x2 ){
-				logfile_printf(LOGLEVEL_EMU_INFO, "UART interrupt (tx ready) \n");
-				enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP);
 			}
 		}
 

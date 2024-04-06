@@ -321,9 +321,13 @@ uint32_t readOplEA(struct stMachineState *pM, struct stOpl *pOp, uint8_t withSeg
 #define SEG_ERR_MSG(seg, oft, min, max) \
 	logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in reading/writing data in segment %s offset %x : min %x max %x (CS:EIP=%x:%x pointer %x)\n", __func__, (seg), (oft), (min), (max), REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
 
-#define CHECK_WRITE_CONDITION_FOR_DATA(seg, offset)                                                     \
-	do{                                                                                                 \
-		if( (offset) < pM->reg.descc_##seg.limit_min || (offset) > pM->reg.descc_##seg.limit_max){      \
+#define CHECK_WRITE_CONDITION_FOR_DATA(seg, offset)                      \
+	do{                                                                  \
+		if(                                                              \
+		    (! pM->reg.descc_##seg.writable)                  ||         \
+		    (offset) < pM->reg.descc_##seg.limit_min          ||         \
+			(offset) > pM->reg.descc_##seg.limit_max                     \
+		){                                                               \
 			SEG_ERR_MSG(#seg, pOp->addr, pM->reg.descc_##seg.limit_min, pM->reg.descc_##seg.limit_max); \
 			ENTER_GP(0);                                                                                \
 		}                                                                                               \
@@ -337,9 +341,14 @@ uint32_t readOplEA(struct stMachineState *pM, struct stOpl *pOp, uint8_t withSeg
 		}                                                                                               \
 	}while(0)
 
-#define CHECK_READ_CONDITION_FOR_DATA(seg, offset)                                                     \
-	do{                                                                                                 \
-		if( (offset) < pM->reg.descc_##seg.limit_min || (offset) > pM->reg.descc_##seg.limit_max){      \
+#include "descriptor.h"
+
+#define CHECK_READ_CONDITION_FOR_DATA(seg, offset)                       \
+	do{                                                                  \
+		if(                                                              \
+		    (offset) < pM->reg.descc_##seg.limit_min          ||         \
+			(offset) > pM->reg.descc_##seg.limit_max                     \
+		){                                                               \
 			SEG_ERR_MSG(#seg, pOp->addr, pM->reg.descc_##seg.limit_min, pM->reg.descc_##seg.limit_max); \
 			ENTER_GP(0);                                                                                \
 		}                                                                                               \

@@ -42,10 +42,17 @@ void writeTimerReg(struct stMachineState *pM, uint8_t addr, uint8_t data){
 
             if( rwmode == 0 ){
                 // Counter Latch Command (for Read Operation)
-                pM->mem.ioTimer.counter_shadow[ target_ch ] =
-                    ( pM->mem.ioTimer.counter[ target_ch ] != 0 ) ? 
-                        ( pM->mem.ioTimer.dummy_counter[ target_ch ] % pM->mem.ioTimer.counter[ target_ch ] ) : 0;
-                pM->mem.ioTimer.dummy_counter[ target_ch ]+=10;
+                pM->mem.ioTimer.counter_shadow[ target_ch ] = pM->mem.ioTimer.dummy_counter[ target_ch ];
+
+                if( pM->mem.ioTimer.dummy_counter[ target_ch ] == 0 ){
+                    if( pM->mem.ioTimer.counter[ target_ch ] == 0 ){
+                        pM->mem.ioTimer.dummy_counter[ target_ch ] = 0;
+                    }else{
+                        pM->mem.ioTimer.dummy_counter[ target_ch ] = pM->mem.ioTimer.counter[ target_ch ] - 1;
+                    }
+                }else{
+                    pM->mem.ioTimer.dummy_counter[ target_ch ] -= 1;
+                }
             }
             break;
         case 0:

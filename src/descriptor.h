@@ -18,12 +18,12 @@
 #define SYSDESC_TYPE_TRAPGATE32		    0xf
 
 
-#define SEGACCESS_CSEG_IS_READABLE(x)		(((x)&0x5) == 0x5)
+#define SEGACCESS_CSEG_IS_READABLE(x)		(((x)&0x1a) == 0x1a)
 /* Code segment may only be executed when CPL >= DPL and CPL remains unchanged. */
-#define SEGACCESS_CSEG_IS_CONFORMING(x)		(((x)&0x6) == 0x6)
+#define SEGACCESS_CSEG_IS_CONFORMING(x)		(((x)&0x1c) == 0x1c)
 
-#define SEGACCESS_DSEG_IS_WRITABLE(x)		(((x)&0xa) == 0x2)
-#define SEGACCESS_DSEG_IS_EXPANDS_DOWN(x)	(((x)&0xc) == 0x4)
+#define SEGACCESS_DSEG_IS_WRITABLE(x)		(((x)&0x1a) == 0x12)
+#define SEGACCESS_DSEG_IS_EXPANDS_DOWN(x)	(((x)&0x1c) == 0x14)
 
 #define SEGACCESS_IS_DSEG(x)				(((x)&0x18) == 0x10)
 #define SEGACCESS_IS_CSEG(x)				(((x)&0x18) == 0x18)

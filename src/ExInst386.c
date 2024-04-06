@@ -325,9 +325,9 @@ int exMOVCRDR(struct stMachineState *pM, uint32_t pointer){
         if( (inst1&1)==0 ){
             // CR
             if( idx == 0 || idx == 3 ){ // DEBUG
-                logfile_printf               (LOGCAT_CPU_EXE | LOGLV_INFO3, "MOV %s%d, ", ((inst1&1)==0) ? "CR" : "DR", idx); 
-                log_printOpl                 (LOGCAT_CPU_EXE | LOGLV_INFO3, pM, &op);
-                logfile_printf_without_header(LOGCAT_CPU_EXE | LOGLV_INFO3, "(= 0x%x)  (pointer: %x)\n", readOpl(pM, &op), pointer);
+                EXI_LOG_PRINTF("MOV %s%d, ", ((inst1&1)==0) ? "CR" : "DR", idx); 
+                log_printOpl  (EXI_LOGLEVEL, pM, &op);
+                EXI_LOG_PRINTF("(= 0x%x)  (pointer: %x)\n", readOpl(pM, &op), pointer);
             }
 
             if( pM->reg.cpl != 0 ){
@@ -431,34 +431,72 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
             pM->reg.descc_ldt = RS;
 
             if( DEBUG ){
-                logfile_printf(LOGCAT_CPU_EXE | LOGLV_NOTICE, "LDTR 0x%02x : LDT base 0x%08x, LDT limit 0x%05x (flags 0x%x, acc 0x%02x)\n", 
+                EXI_LOG_PRINTF("LDTR 0x%02x : LDT base 0x%08x, LDT limit 0x%05x (flags 0x%x, acc 0x%02x)\n", 
                 pM->reg.ldtr, pM->reg.descc_ldt.base, pM->reg.descc_ldt.limit, pM->reg.descc_ldt.flags, pM->reg.descc_ldt.access);
             }
         }
         if( funct == 3 ){
+            EXI_LOG_PRINTF("LTR 0x%02x (pointer: %x)\n", segval, pointer);
+
+            if( pM->reg.cpl != 0 ){
+        		ENTER_GP(0);
+        	}
             struct stRawSegmentDesc RS;
             loadTaskRegister(pM, segval, &RS);
             pM->reg.descc_tr = RS;
             pM->reg.tr       = segval;
-
-            logfile_printf(LOGCAT_CPU_EXE | LOGLV_INFO3, "LTR 0x%02x (pointer: %x)\n", segval, pointer);
         }
 
-    }else if(inst1 == 0 && funct == 4){
-        logfile_printf(LOGCAT_CPU_EXE | LOGLV_WARNING, "VERR \n");
-        if(DEBUG) EXI_LOG_PRINTF("VERR \n");
-        return EX_RESULT_UNKNOWN;
-    }else if(inst1 == 0 && funct == 5){
-        logfile_printf(LOGCAT_CPU_EXE | LOGLV_WARNING, "VERW \n");
-        if(DEBUG) EXI_LOG_PRINTF("VERW \n");
-        return EX_RESULT_UNKNOWN;
+    }else if(inst1 == 0 && (funct == 4 || funct == 5) ){ // VERR(funct == 4), VERW(funct == 5)
+        struct stRawSegmentDesc RS;
+        size += decode_mod_rm(pM, pointer+2, INST_W_WORDACC, &op);
+        UPDATE_IP( size );
+
+        if( ! MODE_PROTECTED32 ){
+            ENTER_UD;
+        }
+
+        if(DEBUG){
+            EXI_LOG_PRINTF(funct == 4 ? "VERR " : "VERW" );
+            log_printOpl(EXI_LOGLEVEL, pM, &op);
+            EXI_LOG_PRINTF("\n");
+        }
+        segval = readOpl(pM, &op);
+        if( 
+            ( (segval & 4) && (segval > pM->reg.idtr_limit )) ||
+            (!(segval & 4) && (segval > pM->reg.gdtr_limit ))
+        ){
+            REG_EFLAGS &= ~(1<<FLAGS_BIT_ZF);
+        }else{
+            loadRawSegmentDesc(pM, segval, &RS);
+
+            uint8_t DPL = ((RS.access & SEGACCESS_DPL_MASK) >> SEGACCESS_BIT_DPL);
+            uint8_t RPL = (segval & 3);
+
+            if( 
+              (SEGACCESS_IS_SYSTEMSEG(RS.access) || (!SEGACCESS_CSEG_IS_CONFORMING(RS.access))) &&
+              (pM->reg.cpl > DPL || RPL > DPL)
+            ){
+                REG_EFLAGS &= ~(1<<FLAGS_BIT_ZF);
+            }else{
+                if( 
+                    ((funct == 4) && (SEGACCESS_CSEG_IS_READABLE(RS.access) || SEGACCESS_IS_DSEG(RS.access))) || // VERR
+                    ((funct == 5) &&  SEGACCESS_DSEG_IS_WRITABLE(RS.access))                                     // VERW
+                ){
+                    REG_EFLAGS |= (1<<FLAGS_BIT_ZF);
+                }else{
+                    REG_EFLAGS &= ~(1<<FLAGS_BIT_ZF);
+                }
+            }
+        }
+
     }else if(inst1 == 1 && (funct == 0 || funct == 1) ){
         size += decode_mod_rm(pM, pointer+2, INST_W_WORDACC, &op);
         UPDATE_IP( size );
 
         if(DEBUG){
             EXI_LOG_PRINTF(funct == 0 ? "SGDT " : "SIDT ");
-            log_printOpl(LOGCAT_CPU_EXE | LOGLV_INFO3, pM, &op);
+            log_printOpl(EXI_LOGLEVEL, pM, &op);
             EXI_LOG_PRINTF("\n");
         }
 
@@ -491,11 +529,11 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
         decode_imm32(pM, addr+2, &val32);
 
         if(DEBUG){
-            logfile_printf(LOGCAT_CPU_EXE | LOGLV_INFO3, funct == 2 ? "LGDT " : "LIDT "); 
-            log_printOpl(LOGCAT_CPU_EXE | LOGLV_INFO3, pM, &op);
-            logfile_printf_without_header(LOGCAT_CPU_EXE | LOGLV_INFO3, "(=%x) ", addr);
-            logfile_printf_without_header(LOGCAT_CPU_EXE | LOGLV_INFO3, "pointer = 0x%x ", pointer);
-            logfile_printf_without_header(LOGCAT_CPU_EXE | LOGLV_INFO3, "[base = 0x%x, limit = 0x%x]\n", val32, val16);
+            EXI_LOG_PRINTF(funct == 2 ? "LGDT " : "LIDT "); 
+            log_printOpl(EXI_LOGLEVEL, pM, &op);
+            EXI_LOG_PRINTF("(=%x) ", addr);
+            EXI_LOG_PRINTF("pointer = 0x%x ", pointer);
+            EXI_LOG_PRINTF("[base = 0x%x, limit = 0x%x]\n", val32, val16);
         }
 
         if( pM->reg.cpl != 0 ){
@@ -535,10 +573,10 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
 
         if(DEBUG){
             PREFIX_OP32 = 0;
-            logfile_printf(LOGCAT_CPU_EXE | LOGLV_INFO3, "%cMSW ", funct == 4 ? 'S': 'L');
-            log_printOpl(LOGCAT_CPU_EXE | LOGLV_INFO3, pM, &op);
-            logfile_printf_without_header(LOGCAT_CPU_EXE | LOGLV_INFO3, "(= 0x%x)\n", readOpl(pM, &op));
-            logfile_printf_without_header(LOGCAT_CPU_EXE | LOGLV_INFO3, "addr 0x%x:0x%x pointer 0x%x\n", REG_CS, REG_EIP, pointer);
+            EXI_LOG_PRINTF("%cMSW ", funct == 4 ? 'S': 'L');
+            log_printOpl(EXI_LOGLEVEL, pM, &op);
+            EXI_LOG_PRINTF("(= 0x%x)\n", readOpl(pM, &op));
+            EXI_LOG_PRINTF("addr 0x%x:0x%x pointer 0x%x\n", REG_CS, REG_EIP, pointer);
             PREFIX_OP32 = save_op32;
         }
 

@@ -120,8 +120,8 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
         old_ss  = REG_SS;
         old_esp = REG_ESP;
 
-        REG_ESP = new_esp;
         updateSegReg(pM, SEGREG_NUM_SS, new_ss);
+        REG_ESP = new_esp;
 
         if( saved_eflag & (1<<EFLAGS_BIT_VM) ){
             // from VM86 mode
@@ -2407,13 +2407,8 @@ int exIRET(struct stMachineState *pM, uint32_t pointer){
     updateSegReg(pM, SEGREG_NUM_CS, val2);
 
     if( goOuter ){
-        /*
-        if( PREFIX_OP32 ) REG_ESP = val4;
-        else              REG_SP  = val4;
-        */
-       
-        REG_ESP = val4;
         updateSegReg(pM, SEGREG_NUM_SS, val5);
+        REG_ESP = val4;
     }
 
     return EX_RESULT_SUCCESS;

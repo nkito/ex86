@@ -19,7 +19,7 @@ static void loadRawSegmentDescData(struct stMachineState *pM, uint32_t base, uin
 		logfile_printf(LOGCAT_CPU_MEM | LOGLV_INFO3, "%s: selector = %x (CS:EIP=%x:%x pointer %x)\n", __func__, selector, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
 	}
 
-	if( selector_body >= limit ){
+	if( selector_body+7 > limit ){
 		ENTER_GP(selector);
 	}
 
@@ -51,11 +51,12 @@ static void loadRawSegmentDescData(struct stMachineState *pM, uint32_t base, uin
 
 		if( ! (pRS->access & 0x80) ){
 			logfile_printf(LOGCAT_CPU_MEM | LOGLV_WARNING, "%s: selector %x is not present (CS:EIP=%x:%x pointer %x)\n", __func__, selector, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
-		}
+		}else{
 
-		if( ! (pRS->access & 0x01) ){
-			pRS->access |= 0x01; // access bit
-			writeDataMemByteAsSV(pM, pointer+5, pRS->access);
+			if( ! (pRS->access & 0x01) ){
+				pRS->access |= 0x01; // access bit
+				writeDataMemByteAsSV(pM, pointer+5, pRS->access);
+			}
 		}
 
 	}else{
@@ -112,6 +113,13 @@ void loadDataSegmentDesc(struct stMachineState *pM, uint16_t selector, struct st
 		// So this ckeck is done for other selector values.
 		ENTER_NP(selector);
 	}
+
+/*
+	uint8_t DPL = ((RS.access & SEGACCESS_DPL_MASK) >> SEGACCESS_BIT_DPL);
+	if( (RPL > DPL) || (pM->reg.cpl > DPL) ){
+		ENTER_GP(selector);
+	}
+*/
 
 	pDD->base   = RS.base;
 	pDD->limit  = RS.limit;
@@ -231,23 +239,15 @@ void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct s
 	uint16_t selector_body = (selector & (~7));
 	uint32_t base, limit, pointer;
 
-	if( pM->reg.cpl != 0 ){
-		ENTER_GP(0);
-	}
-
 	if( selector & 0x4 ){
 		// this selector must point a descriptor in GDT.
 		ENTER_GP(selector);
-		// not reached
-		base    = pM->reg.descc_ldt.base;
-		limit   = pM->reg.descc_ldt.limit;
-	}else{
-		base    = pM->reg.gdtr_base;
-		limit   = pM->reg.gdtr_limit;
 	}
+	base    = pM->reg.gdtr_base;
+	limit   = pM->reg.gdtr_limit;
 
-	if( selector      <      4 ) ENTER_GP(0);
-	if( selector_body >= limit ) ENTER_GP(selector);
+	if( selector        <     4 ) ENTER_GP(0);
+	if( selector_body+7 > limit ) ENTER_GP(selector);
 
 	pointer = base + selector_body;
 	uint8_t access = readDataMemByteAsSV(pM, pointer+5);
@@ -256,11 +256,7 @@ void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct s
 
 	writeDataMemByteAsSV(pM, pointer+5, (access & 0xf0) | SYSDESC_TYPE_TSS32_BUSY );
 
-	if( selector & 0x4 ){
-		loadRawSegmentDescData(pM, pM->reg.descc_ldt.base, pM->reg.descc_ldt.limit, selector, pRS);
-	}else{
-		loadRawSegmentDescData(pM, pM->reg.gdtr_base     , pM->reg.gdtr_limit     , selector, pRS);
-	}
+	loadRawSegmentDescData(pM, base, limit, selector, pRS);
 }
 
 
@@ -316,8 +312,8 @@ void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP){
 		limit   = pM->reg.gdtr_limit;
 	}
 
-	if( pM->reg.tr    <      4 ) ENTER_GP(0);
-	if( selector_body >= limit ) ENTER_GP(pM->reg.tr);
+	if( pM->reg.tr      <     4 ) ENTER_GP(0);
+	if( selector_body+7 > limit ) ENTER_GP(pM->reg.tr);
 
 	uint32_t pointer = base + selector_body;
 	writeDataMemByteAsSV(pM, pointer+5, (pM->reg.descc_tr.access & 0xf0) | SYSDESC_TYPE_TSS32_AVAIL );
@@ -374,7 +370,7 @@ void loadTaskState(struct stMachineState *pM){
 
 void loadIntDesc(struct stMachineState *pM, uint8_t int_num, struct stGateDesc *pGD){
 
-	if( (((uint32_t)int_num)<<3) >= pM->reg.idtr_limit ){
+	if( (((uint32_t)int_num)<<3) > pM->reg.idtr_limit ){
 		pM->reg.fault = (1<<FAULTNUM_UNKNOWN);
 		return ;
 	}
@@ -410,7 +406,7 @@ uint8_t getDescType(struct stMachineState *pM, uint16_t selector){
 		limit   = pM->reg.gdtr_limit;
 	}
 
-	if( selector_body >= limit ) ENTER_GP(selector);
+	if( selector_body+7 > limit ) ENTER_GP(selector);
 
 	pointer = base + selector_body;
 
