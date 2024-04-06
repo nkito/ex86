@@ -40,10 +40,12 @@
 #define SEGACCESS_CSEG_ACCESSED		0x01
 #define SEGACCESS_CSEG_READABLE		0x02
 #define SEGACCESS_CSEG_CONFORMING	0x04
+#define SEGACCESS_CSEG_PRESENT_MASK	0x80
 
 #define SEGACCESS_DSEG_ACCESSED		0x01
 #define SEGACCESS_DSEG_WRITABLE 	0x02
 #define SEGACCESS_DSEG_EXDOWN		0x04
+#define SEGACCESS_DSEG_PRESENT_MASK	0x80
 
 #define SEGACCESS_CSEG		  		0x08
 #define SEGACCESS_CODE_DATA_SEG		0x10
@@ -78,8 +80,6 @@ void loadTaskState       (struct stMachineState *pM);
 
 
 // Functions for gate descriptors (Call, Trap, Interrupt, Task gates)
-
-void loadGateDesc  (struct stMachineState *pM, uint16_t selector, struct stGateDesc *pGD);
 void loadIntDesc   (struct stMachineState *pM, uint8_t   int_num, struct stGateDesc *pID);
 
 uint8_t getDescType(struct stMachineState *pM, uint16_t selector);

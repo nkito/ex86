@@ -48,7 +48,6 @@ static void loadRawSegmentDescData(struct stMachineState *pM, uint32_t base, uin
 
 	if( pRS->access & 0x10 ){
 		// Code or Data Segment Descriptor
-		type = ((pRS->access >>1)&0x7);
 
 		if( ! (pRS->access & 0x80) ){
 			logfile_printf(LOGCAT_CPU_MEM | LOGLV_WARNING, "%s: selector %x is not present (CS:EIP=%x:%x pointer %x)\n", __func__, selector, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
@@ -60,7 +59,7 @@ static void loadRawSegmentDescData(struct stMachineState *pM, uint32_t base, uin
 		}
 
 	}else{
-		// System Descriptor
+		// System or gate Descriptor
 		type = (pRS->access &0xf);
 
 		if( type != SYSDESC_TYPE_LDT         && 
@@ -108,6 +107,12 @@ void loadDataSegmentDesc(struct stMachineState *pM, uint16_t selector, struct st
 		loadRawSegmentDescData(pM, pM->reg.gdtr_base, pM->reg.gdtr_limit, selector, &RS);
 	}
 
+	if( selector >= 4 && (!(RS.access & SEGACCESS_DSEG_PRESENT_MASK)) ){
+		// loading selector values from 0 to 3 is valid operation.
+		// So this ckeck is done for other selector values.
+		ENTER_NP(selector);
+	}
+
 	pDD->base   = RS.base;
 	pDD->limit  = RS.limit;
 	pDD->access = RS.access;
@@ -139,6 +144,10 @@ void loadStackSegmentDesc(struct stMachineState *pM, uint16_t selector, struct s
 		loadRawSegmentDescData(pM, pM->reg.descc_ldt.base, pM->reg.descc_ldt.limit, selector, &RS);
 	}else{
 		loadRawSegmentDescData(pM, pM->reg.gdtr_base, pM->reg.gdtr_limit, selector, &RS);
+	}
+
+	if( ! (RS.access & SEGACCESS_DSEG_PRESENT_MASK) ){
+		ENTER_SS(selector);
 	}
 
 	pDD->base   = RS.base;
@@ -222,7 +231,14 @@ void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct s
 	uint16_t selector_body = (selector & (~7));
 	uint32_t base, limit, pointer;
 
+	if( pM->reg.cpl != 0 ){
+		ENTER_GP(0);
+	}
+
 	if( selector & 0x4 ){
+		// this selector must point a descriptor in GDT.
+		ENTER_GP(selector);
+		// not reached
 		base    = pM->reg.descc_ldt.base;
 		limit   = pM->reg.descc_ldt.limit;
 	}else{
@@ -289,6 +305,7 @@ static uint32_t readDWfromMem(struct stMachineState *pM, uint32_t addr){
 
 /* Clear BUSY flag of current TSS descripter (specified by TR) and save state into TSS */
 void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP){
+	uint16_t selector_body = (pM->reg.tr & (~7));
 	uint32_t base, limit;
 
 	if( pM->reg.tr & 0x4 ){
@@ -299,7 +316,10 @@ void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP){
 		limit   = pM->reg.gdtr_limit;
 	}
 
-	uint32_t pointer = base + (pM->reg.tr & (~7));
+	if( pM->reg.tr    <      4 ) ENTER_GP(0);
+	if( selector_body >= limit ) ENTER_GP(pM->reg.tr);
+
+	uint32_t pointer = base + selector_body;
 	writeDataMemByteAsSV(pM, pointer+5, (pM->reg.descc_tr.access & 0xf0) | SYSDESC_TYPE_TSS32_AVAIL );
 
 	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_EAX, pM->reg.eax);
@@ -349,57 +369,6 @@ void loadTaskState(struct stMachineState *pM){
 	updateSegReg(pM, SEGREG_NUM_GS, readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_GS));
 
 	pM->reg.eip = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_EIP);
-}
-
-
-// -----------------------------------------------------------------------------------------
-//   Code for Gate Descriptors
-//     
-//      - Call gates
-//      - Trap gates
-//      - Interrupt gates
-//      - Task gates
-// -----------------------------------------------------------------------------------------
-
-
-static void loadGateDescData(struct stMachineState *pM, uint32_t base, uint32_t limit, uint16_t selector, struct stGateDesc *pGD){
-	if( selector & 7 ){
-		logfile_printf(LOGCAT_CPU_MEM | LOGLV_INFO3, "%s: selector = %x CS:EIP = %x:%x (%x)\n", __func__, selector, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
-	}
-
-	selector &= (~7);
-
-	if( selector >= limit ){
-		pM->reg.fault = (1<<FAULTNUM_UNKNOWN);
-		return ;
-	}
-
-	uint32_t pointer = base + selector;
-
-    pGD->selector  = readDataMemByteAsSV(pM, pointer+2);
-    pGD->selector |= ((uint16_t) readDataMemByteAsSV(pM, pointer+3))<< 8;
-
-    pGD->offset  = readDataMemByteAsSV(pM, pointer+0);
-    pGD->offset |= ((uint32_t)readDataMemByteAsSV(pM, pointer+1))<< 8;
-    pGD->offset |= ((uint32_t)readDataMemByteAsSV(pM, pointer+6))<<16;
-    pGD->offset |= ((uint32_t)readDataMemByteAsSV(pM, pointer+7))<<24;
-
-    pGD->access = readDataMemByteAsSV(pM, pointer+5);
-    pGD->len    = readDataMemByteAsSV(pM, pointer+4);
-
-	uint8_t type = (pGD->access & 0xf);
-
-	logfile_printf(LOGCAT_CPU_MEM | LOGLV_INFO3, "%s: selector = %x => selector=%x, offset=%x, access=%x, len=%x (CS:EIP = %x:%x (%x))\n", 
-	__func__, selector, pGD->selector, pGD->offset, pGD->access, pGD->len, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
-
-}
-
-void loadGateDesc(struct stMachineState *pM, uint16_t selector, struct stGateDesc *pGD){
-	if( selector & 0x4 ){
-		loadGateDescData(pM, pM->reg.descc_ldt.base, pM->reg.descc_ldt.limit, selector, pGD);
-	}else{
-		loadGateDescData(pM, pM->reg.gdtr_base, pM->reg.gdtr_limit, selector, pGD);
-	}
 }
 
 

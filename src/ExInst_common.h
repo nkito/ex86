@@ -90,6 +90,12 @@
     siglongjmp(pM->emu.env, -1);                    \
 }while(0)
 
+#define ENTER_NP(ecode) do{                         \
+    pM->reg.error_code  = ecode;                    \
+    pM->reg.fault      |= (1<<FAULTNUM_SEGNOTP);    \
+    siglongjmp(pM->emu.env, -1);                    \
+}while(0)
+
 #define ENTER_TS(ecode) do{                         \
     pM->reg.error_code  = ecode;                    \
     pM->reg.fault      |= (1<<FAULTNUM_INVALIDTSS); \

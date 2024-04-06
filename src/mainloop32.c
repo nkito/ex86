@@ -181,6 +181,10 @@ void mainloop32_inner(struct stMachineState *pM){
 			pM->reg.fault = 0;
 			enterINTwithECODE(pM, FAULTNUM_GP, pM->reg.current_cs, pM->reg.current_eip, pM->reg.error_code);
 		}
+		if( pM->reg.fault & (1<<FAULTNUM_SEGNOTP) ){
+			pM->reg.fault = 0;
+			enterINTwithECODE(pM, FAULTNUM_SEGNOTP, pM->reg.current_cs, pM->reg.current_eip, pM->reg.error_code);
+		}
 	}
 
 	while( (pM->emu.stop == 0 || (pM->emu.stop > 0 && pM->emu.stop >= pM->emu.nExecInsts)) && eflag == 0 ){

@@ -411,13 +411,25 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
         PREFIX_OP32 = save_op32;
 
         if( funct == 2 ){
-            pM->reg.ldtr = segval;
+            struct stRawSegmentDesc RS;
 
-            if( pM->reg.ldtr >= pM->reg.gdtr_limit ){
-                logfile_printf(LOGCAT_CPU_EXE | LOGLV_ERROR, "LLDT : the ldtr (=0x%x) is out of GDTR limit. (pointer: %x)\n", pM->reg.ldtr, pointer);
+	        if( pM->reg.cpl != 0 ){
+        		ENTER_GP(0);
+        	}
+
+            if( segval >= pM->reg.gdtr_limit ){
+                logfile_printf(LOGCAT_CPU_EXE | LOGLV_ERROR, "LLDT : the ldtr (=0x%x) is out of GDTR limit. (pointer: %x)\n", segval, pointer);
+            }
+            if( segval & 0x4 ){
+                // this selector must point a descriptor in GDT.
+                ENTER_GP(segval);
             }
 
-            loadRawSegmentDesc(pM, pM->reg.ldtr, &(pM->reg.descc_ldt));
+            loadRawSegmentDesc(pM, segval, &RS);
+
+            pM->reg.ldtr      = segval;
+            pM->reg.descc_ldt = RS;
+
             if( DEBUG ){
                 logfile_printf(LOGCAT_CPU_EXE | LOGLV_NOTICE, "LDTR 0x%02x : LDT base 0x%08x, LDT limit 0x%05x (flags 0x%x, acc 0x%02x)\n", 
                 pM->reg.ldtr, pM->reg.descc_ldt.base, pM->reg.descc_ldt.limit, pM->reg.descc_ldt.flags, pM->reg.descc_ldt.access);
@@ -428,10 +440,6 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
             loadTaskRegister(pM, segval, &RS);
             pM->reg.descc_tr = RS;
             pM->reg.tr       = segval;
-            /*
-            pM->reg.tr = segval;
-            loadRawSegmentDesc(pM, pM->reg.tr, &(pM->reg.descc_tr));
-            */
 
             logfile_printf(LOGCAT_CPU_EXE | LOGLV_INFO3, "LTR 0x%02x (pointer: %x)\n", segval, pointer);
         }
