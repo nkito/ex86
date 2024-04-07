@@ -39,13 +39,14 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
     uint32_t saved_eflag;
 
     if(int_num == 0x80){
+        // Linux system call
         logfile_printf((LOGCAT_CPU_EXE | LOGLV_INFO3), "INT %x: EAX=%x(%d) EBX=%x ECX=%x EDX=%x (CS:EIP=%x:%x)\n", int_num, REG_EAX, REG_EAX, REG_EBX, REG_ECX, REG_EDX, REG_CS, REG_EIP );
     }
 
     struct stGateDesc GD;
     loadIntDesc(pM, int_num, &GD);
 
-    if( ! (GD.access & 0x80) ){
+    if( ! (GD.access & SEGFLAGS_PRESENT) ){
         logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is not present (CS:EIP %x:%x)\n", int_num, pM->reg.current_cs, pM->reg.current_eip);
     }
 
@@ -72,50 +73,26 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
             break;
     }
 
-
-    if( (pM->reg.cpl != 0 && (GD.selector&3) == pM->reg.cpl) || (pM->reg.cpl == 0 && (GD.selector&3) != pM->reg.cpl) ){
-        logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x , PL %d -> %d  (CS:EIP %x:%x)\n", int_num, pM->reg.cpl, (GD.selector&3), pM->reg.current_cs, pM->reg.current_eip);
-
-        //test code
-        if( pM->reg.cpl == 3 && (GD.selector&3) == 3 ){
-            PUSH_TO_STACK( saved_eflag );
-            PUSH_TO_STACK( cs  );
-            PUSH_TO_STACK( eip );
-            if( enable_error_code ){
-                PUSH_TO_STACK( error_code );
-            }
-
-            updateSegReg(pM, SEGREG_NUM_CS, GD.selector);
-            REG_EIP = GD.offset;
-
-            PREFIX_OP32 = save_data32;
-            PREFIX_AD32 = save_addr32;
-            logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Entered test code\n");
-            return;
-        }
-    }
-
-
-    if( pM->reg.cpl != 0 ){
-        pM->reg.cpl = 0;
-
-        /*
-        struct stRawSegmentDesc RS;
-        loadRawSegmentDesc(pM, pM->reg.tr, &RS); // Checking of descriptor type (it should be TSS) should be added
-        */
-
+    if( pM->reg.cpl != (GD.selector&3) ){
         uint32_t new_esp, old_esp;
         uint16_t new_ss,  old_ss;
         uint32_t TSSbase  = pM->reg.descc_tr.base;
         uint32_t TSSlimit = pM->reg.descc_tr.limit;
+        
+        if( TSSlimit < TSS_MINIMUM_LIMIT_VALUE_32BIT ){
+            logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x , PL %d -> %d  (CS:EIP %x:%x)\n", int_num, pM->reg.cpl, (GD.selector&3), pM->reg.current_cs, pM->reg.current_eip);
+        }
 
-        new_esp  = readDataMemByteAsSV(pM, TSSbase + 4);
-        new_esp |= ((uint32_t)readDataMemByteAsSV(pM, TSSbase + 5))<< 8;
-        new_esp |= ((uint32_t)readDataMemByteAsSV(pM, TSSbase + 6))<<16;
-        new_esp |= ((uint32_t)readDataMemByteAsSV(pM, TSSbase + 7))<<24;
+        pM->reg.cpl = (GD.selector&3);
+        uint32_t TSS_SP_base = TSSbase + 4 + (pM->reg.cpl * 8);
 
-        new_ss  = readDataMemByteAsSV(pM, TSSbase + 8);
-        new_ss |= ((uint16_t) readDataMemByteAsSV(pM, TSSbase + 9))<< 8;
+        new_esp  = readDataMemByteAsSV(pM, TSS_SP_base);
+        new_esp |= ((uint32_t)readDataMemByteAsSV(pM, TSS_SP_base + 1))<< 8;
+        new_esp |= ((uint32_t)readDataMemByteAsSV(pM, TSS_SP_base + 2))<<16;
+        new_esp |= ((uint32_t)readDataMemByteAsSV(pM, TSS_SP_base + 3))<<24;
+
+        new_ss  = readDataMemByteAsSV(pM, TSS_SP_base + 4);
+        new_ss |= ((uint16_t) readDataMemByteAsSV(pM, TSS_SP_base + 5))<< 8;
 
         old_ss  = REG_SS;
         old_esp = REG_ESP;
@@ -139,7 +116,6 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
         PUSH_TO_STACK( old_esp  );
     }
 
-//    PUSH_TO_STACK( readFLAGS(pM) );
     PUSH_TO_STACK( saved_eflag );
     PUSH_TO_STACK( cs  );
     PUSH_TO_STACK( eip );
@@ -285,7 +261,7 @@ int exHLT(struct stMachineState *pM, uint32_t pointer){
 
     UPDATE_IP(1);
 
-    if( pM->reg.cpl != 0 ){
+    if( MODE_PROTECTED && (pM->reg.cpl != 0) ){
         ENTER_GP(0);
     }
 
@@ -2044,8 +2020,8 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
                 // (do NOT load register values from TSS here)
                 loadTaskRegister(pM, val2, &RS);
 
-                if((RS.limit < 0x67)                       || 
-                    pM->reg.cpl > SEGACCESS_DPL(RS.access) ||
+                if((RS.limit < TSS_MINIMUM_LIMIT_VALUE_32BIT) || 
+                    pM->reg.cpl > SEGACCESS_DPL(RS.access)    ||
                     RPL         > SEGACCESS_DPL(RS.access) ){
                     ENTER_TS(val2);
                 }

@@ -461,7 +461,11 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
             log_printOpl(EXI_LOGLEVEL, pM, &op);
             EXI_LOG_PRINTF("\n");
         }
+        
+        PREFIX_OP32 = 0;
         segval = readOpl(pM, &op);
+        PREFIX_OP32 = save_op32;
+
         if( 
             ( (segval & 4) && (segval > pM->reg.idtr_limit )) ||
             (!(segval & 4) && (segval > pM->reg.gdtr_limit ))

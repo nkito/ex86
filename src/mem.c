@@ -207,10 +207,8 @@ uint32_t fetchCodeDataDoubleWord(struct stMachineState *pM, uint32_t addr){
 
     if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
         if( (addr & 0xfff) + 3 >= 0x1000 ){
-            return (  ((uint32_t)fetchCodeDataByte(pM, addr+0))       |
-                     (((uint32_t)fetchCodeDataByte(pM, addr+1)) << 8) |
-                     (((uint32_t)fetchCodeDataByte(pM, addr+2)) <<16) |
-                     (((uint32_t)fetchCodeDataByte(pM, addr+3)) <<24) );
+            return (  ((uint32_t)fetchCodeDataWord(pM, addr+0))       |
+                     (((uint32_t)fetchCodeDataWord(pM, addr+2)) <<16) );
         }
 
         addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl); // read access, privilege level = CPL
@@ -340,10 +338,8 @@ uint32_t readDataMemDoubleWord(struct stMachineState *pM, uint32_t addr){
     if( pM->reg.cr[0] & (1<<CR0_BIT_PG)){
 
         if( (addr & 0xfff) + 3 >= 0x1000 ){
-            return (  ((uint32_t)readDataMemByte(pM, addr+0))       |
-                     (((uint32_t)readDataMemByte(pM, addr+1)) << 8) |
-                     (((uint32_t)readDataMemByte(pM, addr+2)) <<16) |
-                     (((uint32_t)readDataMemByte(pM, addr+3)) <<24) );
+            return (  ((uint32_t)readDataMemWord(pM, addr+0))       |
+                     (((uint32_t)readDataMemWord(pM, addr+2)) <<16) );
         }
 
         addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl);  // read access, privilege level = CPL
@@ -516,7 +512,8 @@ void writeDataMemWord(struct stMachineState *pM, uint32_t addr, uint16_t data){
     if( addr  >= EMU_MEM_SIZE ) return ;
     if( addr1 >= EMU_MEM_SIZE ) return ;
 
-    pM->mem.mem[addr] = data&0xff; pM->mem.mem[addr1] = (data>>8);
+    pM->mem.mem[addr]  = data&0xff;
+    pM->mem.mem[addr1] = (data>>8);
 
     if( BIOS_DATA_AREA_CURSOR_X_0 -1 <= addr && addr <= BIOS_DATA_AREA_CURSOR_Y_0 ) updateCursorPosition(pM, addr);
 //    if( addr1 == BIOS_DATA_AREA_CURSOR_X_0 || addr == BIOS_DATA_AREA_CURSOR_X_0 || addr == BIOS_DATA_AREA_CURSOR_Y_0 ) updateCursorPosition(pM, addr);
@@ -531,10 +528,8 @@ void writeDataMemDoubleWord(struct stMachineState *pM, uint32_t addr, uint32_t d
 
     if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
         if( (addr & 0xfff) + 3 >= 0x1000 ){
-            writeDataMemByte(pM, addr+0,  data     &0xff);
-            writeDataMemByte(pM, addr+1, (data>> 8)&0xff);
-            writeDataMemByte(pM, addr+2, (data>>16)&0xff);
-            writeDataMemByte(pM, addr+3, (data>>24)&0xff);
+            writeDataMemWord(pM, addr+0,  data     &0xffff);
+            writeDataMemWord(pM, addr+2, (data>>16)&0xffff);
             return;
         }
 
