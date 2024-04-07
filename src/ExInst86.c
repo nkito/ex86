@@ -46,7 +46,7 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
     struct stGateDesc GD;
     loadIntDesc(pM, int_num, &GD);
 
-    if( ! (GD.access & SEGFLAGS_PRESENT) ){
+    if( ! (GD.access & SEGACCESS_PRESENT) ){
         logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is not present (CS:EIP %x:%x)\n", int_num, pM->reg.current_cs, pM->reg.current_eip);
     }
 
@@ -56,20 +56,20 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
             PREFIX_OP32 = 1;
             PREFIX_AD32 = 1;
             saved_eflag = readFLAGS(pM);
-            REG_EFLAGS &= ~((1<<FLAGS_BIT_IF)|(1<<FLAGS_BIT_TF)|(1<<EFLAGS_BIT_VM));
+            REG_EFLAGS &= ~((1<<FLAGS_BIT_IF)|(1<<FLAGS_BIT_TF)|(1<<EFLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
             break;
         case SYSDESC_TYPE_TRAPGATE32:
             PREFIX_OP32 = 1;
             PREFIX_AD32 = 1;
             saved_eflag = readFLAGS(pM);
-            REG_EFLAGS &= ~((1<<FLAGS_BIT_TF)|(1<<EFLAGS_BIT_VM));
+            REG_EFLAGS &= ~((1<<FLAGS_BIT_TF)|(1<<EFLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
             break;
         default:
             logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is type 0x%x  (CS:EIP %x:%x)\n", int_num, (GD.access & 0x0f), pM->reg.current_cs, pM->reg.current_eip);
             PREFIX_OP32 = 1;
             PREFIX_AD32 = 1;
             saved_eflag = readFLAGS(pM);
-            REG_EFLAGS &= ~((1<<FLAGS_BIT_IF)|(1<<FLAGS_BIT_TF)|(1<<EFLAGS_BIT_VM));
+            REG_EFLAGS &= ~((1<<FLAGS_BIT_IF)|(1<<FLAGS_BIT_TF)|(1<<EFLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
             break;
     }
 
@@ -689,9 +689,11 @@ int exPUSHFPOPF(struct stMachineState *pM, uint32_t pointer){
         PUSH_TO_STACK( readFLAGS(pM) & mask );
 
     }else if( inst0 == 0x9d ){
-        if(DEBUG) EXI_LOG_PRINTF("POPF\n");
+        if(DEBUG) EXI_LOG_PRINTF("POPF ");
 
         POP_FROM_STACK( flag );
+
+        if(DEBUG) EXI_LOG_PRINTF("(0x%x) \n", flag);
 
         if( MODE_PROTECTEDVM ){
             if( (PREFIX_OP32 ? IOPL(REG_EFLAGS) : IOPL(REG_FLAGS)) == 3  ){
@@ -708,7 +710,7 @@ int exPUSHFPOPF(struct stMachineState *pM, uint32_t pointer){
             }else{
                 ENTER_GP(0);
             }
-        }else if( ! MODE_PROTECTED || pM->reg.cpl == 0 ){
+        }else if( (! MODE_PROTECTED) || pM->reg.cpl == 0 ){
             if( PREFIX_OP32 ){
                 REG_EFLAGS &= (1<<EFLAGS_BIT_VM);
                 REG_EFLAGS |= (flag & (~(1<<EFLAGS_BIT_VM)));
@@ -1922,6 +1924,12 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
         decode_imm(pM, pointer+1+size, INST_W_WORDACC, &val2, INST_S_NOSIGNEX); // 16-bit access
         PREFIX_OP32 = data32;
 
+        if(DEBUG) EXI_LOG_PRINTF("LCALL %x:%x\n", val2, val);
+
+        if(  MODE_PROTECTED32 && (!SEGACCESS_IS_CSEG( getDescType(pM, val2) ))  ){
+            return EX_RESULT_UNKNOWN;
+        }
+
         if(PREFIX_OP32){ 
             REG_EIP += 7;
             PUSH_TO_STACK( REG_CS  ); updateSegReg(pM, SEGREG_NUM_CS, val2);
@@ -1931,8 +1939,6 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
             PUSH_TO_STACK( REG_CS ); updateSegReg(pM, SEGREG_NUM_CS, val2);
             PUSH_TO_STACK( REG_IP ); REG_IP = val;
         }
-
-        if(DEBUG) EXI_LOG_PRINTF("LCALL %x:%x\n", val2, val);
 
     }else if( inst0 == 0xff && (inst1 & 0x38) == 0x18 ){
         // Indirect intersegment
@@ -1948,6 +1954,12 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
         uint16_t new_cs = readOpl(pM,  &op); // 16-bit access
         PREFIX_OP32 = data32;
 
+        if(DEBUG){ EXI_LOG_PRINTF("LCALL %x:%x\n", new_cs, new_ip); }
+
+        if(  MODE_PROTECTED32 && (!SEGACCESS_IS_CSEG( getDescType(pM, new_cs) ))  ){
+            return EX_RESULT_UNKNOWN;
+        }
+
         if(PREFIX_OP32){ 
             PUSH_TO_STACK( REG_CS  ); updateSegReg(pM, SEGREG_NUM_CS, new_cs);
             PUSH_TO_STACK( REG_EIP ); REG_EIP = new_ip;
@@ -1955,8 +1967,6 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
             PUSH_TO_STACK( REG_CS  ); updateSegReg(pM, SEGREG_NUM_CS, new_cs);
             PUSH_TO_STACK( REG_IP  ); REG_IP  = new_ip;
         }
-
-        if(DEBUG){ EXI_LOG_PRINTF("LCALL %x:%x\n", REG_CS, REG_EIP); }
     }else{
         return EX_RESULT_UNKNOWN;
     }
@@ -2305,6 +2315,43 @@ int exIRET(struct stMachineState *pM, uint32_t pointer){
 
     if( inst0  != 0xcf ) return EX_RESULT_UNKNOWN; 
 	if( DEBUG ) EXI_LOG_PRINTF("IRET\n");
+
+    if( MODE_PROTECTED32 && (REG_EFLAGS & (1<<EFLAGS_BIT_NT)) ){
+        struct stRawSegmentDesc RS;
+        uint16_t next_tr;
+        next_tr = readDataMemByteAsSV(pM, pM->reg.descc_tr.base+0);
+        next_tr|=(readDataMemByteAsSV(pM, pM->reg.descc_tr.base+1)<<8);
+        uint8_t  RPL     = (next_tr & 3);
+
+        // ---------------------------
+        // This code is not checked
+        // ---------------------------
+
+        if( ! SEGACCESS_IS_TSS32(getDescType(pM, next_tr)) ){
+            ENTER_TS(next_tr);
+        }
+
+        // load a TSS descriptor pointed by "next_tr"
+        // loading values from TSS is done after checking the descriptor
+        loadTaskRegister(pM, next_tr, &RS);
+
+        if((RS.limit < TSS_MINIMUM_LIMIT_VALUE_32BIT) || 
+            pM->reg.cpl > SEGACCESS_DPL(RS.access)    ||
+            RPL         > SEGACCESS_DPL(RS.access) ){
+            ENTER_TS(next_tr);
+        }
+
+        // Save current register values and clear busy flag of the TSS
+        unloadTaskRegister(pM, pM->reg.current_eip + 1);
+
+        // Change the task register and load register value from TSS
+        pM->reg.tr       = next_tr;
+        pM->reg.descc_tr = RS;
+        pM->reg.cr[0]   |= (1<<CR0_BIT_TS);
+        loadTaskState(pM);
+        return EX_RESULT_SUCCESS;
+    }
+
 
     if( MODE_PROTECTEDVM && (((REG_EFLAGS>>EFLAGS_BIT_IOPL)&3) < 3) ){
         ENTER_GP(0);

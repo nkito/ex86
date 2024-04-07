@@ -40,29 +40,29 @@
 #define SEGACCESS_CSEG_ACCESSED		0x01
 #define SEGACCESS_CSEG_READABLE		0x02
 #define SEGACCESS_CSEG_CONFORMING	0x04
-#define SEGACCESS_CSEG_PRESENT_MASK	0x80
 
 #define SEGACCESS_DSEG_ACCESSED		0x01
 #define SEGACCESS_DSEG_WRITABLE 	0x02
 #define SEGACCESS_DSEG_EXDOWN		0x04
-#define SEGACCESS_DSEG_PRESENT_MASK	0x80
 
 #define SEGACCESS_CSEG		  		0x08
 #define SEGACCESS_CODE_DATA_SEG		0x10
+#define SEGACCESS_PRESENT           0x80  /* present */
 
 #define SEGACCESS_BIT_DPL    		5
 #define SEGACCESS_DPL_MASK     		(3<<SEGACCESS_BIT_DPL)
 #define SEGACCESS_DPL(x)            (((x)&SEGACCESS_DPL_MASK) >> SEGACCESS_BIT_DPL)
 
 
-#define SEGFLAGS_DSEG_AVAIL    0x01  /* available */
-#define SEGFLAGS_CSEG_AVAIL    0x01  /* available */
+//#define SEGFLAGS_DSEG_AVAIL    0x01  /* available */
+//#define SEGFLAGS_CSEG_AVAIL    0x01  /* available */
 #define SEGFLAGS_DSEG_B_BIT    0x04  /* big (ESP/SP is used if this bit is 1/0) */
 #define SEGFLAGS_CSEG_D_BIT    0x04  /* default bit (1: 32-bit) */
 #define SEGFLAGS_DSEG_GRAN     0x08  /* granularity (1: page 0: bit) */
 #define SEGFLAGS_CSEG_GRAN     0x08  /* granularity (1: page 0: bit) */
 
-#define SEGFLAGS_PRESENT       0x80  /* present */
+
+#define TSS_MINIMUM_LIMIT_VALUE_32BIT	0x67 /* size of a 32-bit TSS is 0x67(=103, i.e., 4x26-1) or greater */
 
 
 // Functions for segment descriptors (CODE, DATA, LDT, TSS)

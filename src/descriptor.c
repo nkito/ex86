@@ -108,7 +108,7 @@ void loadDataSegmentDesc(struct stMachineState *pM, uint16_t selector, struct st
 		loadRawSegmentDescData(pM, pM->reg.gdtr_base, pM->reg.gdtr_limit, selector, &RS);
 	}
 
-	if( selector >= 4 && (!(RS.access & SEGACCESS_DSEG_PRESENT_MASK)) ){
+	if( selector >= 4 && (!(RS.access & SEGACCESS_PRESENT)) ){
 		// loading selector values from 0 to 3 is valid operation.
 		// So this ckeck is done for other selector values.
 		ENTER_NP(selector);
@@ -154,7 +154,7 @@ void loadStackSegmentDesc(struct stMachineState *pM, uint16_t selector, struct s
 		loadRawSegmentDescData(pM, pM->reg.gdtr_base, pM->reg.gdtr_limit, selector, &RS);
 	}
 
-	if( ! (RS.access & SEGACCESS_DSEG_PRESENT_MASK) ){
+	if( ! (RS.access & SEGACCESS_PRESENT) ){
 		ENTER_SS(selector);
 	}
 
@@ -252,7 +252,7 @@ void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct s
 	pointer = base + selector_body;
 	uint8_t access = readDataMemByteAsSV(pM, pointer+5);
 
-	if( ! (SEGFLAGS_PRESENT & access) ) ENTER_GP(selector);
+	if( ! (SEGACCESS_PRESENT & access) ) ENTER_GP(selector);
 
 	writeDataMemByteAsSV(pM, pointer+5, (access & 0xf0) | SYSDESC_TYPE_TSS32_BUSY );
 

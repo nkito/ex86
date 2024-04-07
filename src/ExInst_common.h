@@ -66,7 +66,9 @@
 #define PREFIX_AD32 (pM->prefix.addr32)
 #define PREFIX_OP32 (pM->prefix.data32)
 
-#define CODESEG_D_BIT (pM->reg.descc_cs.flags & (1<<DESC_FLAGS_BIT_D))
+
+#include "descriptor.h"
+#define CODESEG_D_BIT (pM->reg.descc_cs.flags & SEGFLAGS_CSEG_D_BIT)
 
 
 //------------------------------------------------------------

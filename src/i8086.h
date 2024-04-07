@@ -24,7 +24,7 @@ struct stEmuSetting{
 	uint64_t breakCounter;
 	sigjmp_buf env;
 	uint64_t nExecInsts;
-    int      stop;
+    uint64_t stop;
 	unsigned int log_enabled_cat;
 	unsigned int log_level;
 };
@@ -394,12 +394,5 @@ uint32_t parseHex(char *str);
 #define FAULTNUM_PAGEFAULT  14 /* #PF, Page Fault */
 
 #define FAULTNUM_UNKNOWN    31
-
-/* Bits in flags of segment descriptor bits[52:55] */
-#define DESC_FLAGS_BIT_G	3	/* 55-bit Granularity bit */
-#define DESC_FLAGS_BIT_D	2	/* 54-bit Default bit (0:16-bit, 1:32-bit) */
-
-
-#define TSS_MINIMUM_LIMIT_VALUE_32BIT	0x67 /* size of a 32-bit TSS is 0x67(=103, i.e., 4x26-1) or greater */
 
 #endif
