@@ -20,7 +20,7 @@ static void loadRawSegmentDescData(struct stMachineState *pM, uint32_t base, uin
 	}
 
 	if( selector_body+7 > limit ){
-		ENTER_GP(selector);
+		ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
 	}
 
 	if( selector < 4 ){
@@ -111,7 +111,7 @@ void loadDataSegmentDesc(struct stMachineState *pM, uint16_t selector, struct st
 	if( selector >= 4 && (!(RS.access & SEGACCESS_PRESENT)) ){
 		// loading selector values from 0 to 3 is valid operation.
 		// So this ckeck is done for other selector values.
-		ENTER_NP(selector);
+		ENTER_NP( ECODE_SEGMENT_GDT_LDT(selector) );
 	}
 
 /*
@@ -155,7 +155,7 @@ void loadStackSegmentDesc(struct stMachineState *pM, uint16_t selector, struct s
 	}
 
 	if( ! (RS.access & SEGACCESS_PRESENT) ){
-		ENTER_SS(selector);
+		ENTER_SS( ECODE_SEGMENT_GDT_LDT(selector) );
 	}
 
 	pDD->base   = RS.base;
@@ -241,18 +241,18 @@ void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct s
 
 	if( selector & 0x4 ){
 		// this selector must point a descriptor in GDT.
-		ENTER_GP(selector);
+		ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
 	}
 	base    = pM->reg.gdtr_base;
 	limit   = pM->reg.gdtr_limit;
 
 	if( selector        <     4 ) ENTER_GP(0);
-	if( selector_body+7 > limit ) ENTER_GP(selector);
+	if( selector_body+7 > limit ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
 
 	pointer = base + selector_body;
 	uint8_t access = readDataMemByteAsSV(pM, pointer+5);
 
-	if( ! (SEGACCESS_PRESENT & access) ) ENTER_GP(selector);
+	if( ! (SEGACCESS_PRESENT & access) ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
 
 	writeDataMemByteAsSV(pM, pointer+5, (access & 0xf0) | SYSDESC_TYPE_TSS32_BUSY );
 
@@ -313,7 +313,7 @@ void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP){
 	}
 
 	if( pM->reg.tr      <     4 ) ENTER_GP(0);
-	if( selector_body+7 > limit ) ENTER_GP(pM->reg.tr);
+	if( selector_body+7 > limit ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(pM->reg.tr) );
 
 	uint32_t pointer = base + selector_body;
 	writeDataMemByteAsSV(pM, pointer+5, (pM->reg.descc_tr.access & 0xf0) | SYSDESC_TYPE_TSS32_AVAIL );
@@ -388,8 +388,14 @@ void loadIntDesc(struct stMachineState *pM, uint8_t int_num, struct stGateDesc *
     pGD->access = readDataMemByteAsSV(pM, pointer+5);
 }
 
-
-uint8_t getDescType(struct stMachineState *pM, uint16_t selector){
+/**
+ * Fetch a type field in a descriptor pointed by a selector.
+ * 
+ * Return:
+ *   1 : success
+ *   0 : out-of-range
+*/
+int getDescType(struct stMachineState *pM, uint16_t selector, uint8_t *pAccess){
 	uint16_t selector_body = (selector & (~7));
 	uint32_t base, limit, pointer;
 
@@ -406,9 +412,11 @@ uint8_t getDescType(struct stMachineState *pM, uint16_t selector){
 		limit   = pM->reg.gdtr_limit;
 	}
 
-	if( selector_body+7 > limit ) ENTER_GP(selector);
+	if( selector_body+7 > limit ) return 0;
 
 	pointer = base + selector_body;
 
-	return readDataMemByteAsSV(pM, pointer+5);
+	*pAccess = readDataMemByteAsSV(pM, pointer+5);
+
+	return 1;
 }

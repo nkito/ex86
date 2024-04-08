@@ -24,7 +24,7 @@ struct stEmuSetting{
 	uint64_t breakCounter;
 	sigjmp_buf env;
 	uint64_t nExecInsts;
-    uint64_t stop;
+	uint64_t stop;
 	unsigned int log_enabled_cat;
 	unsigned int log_level;
 };
@@ -305,7 +305,6 @@ struct stMachineState{
 
 void printOpl(struct stOpl *pOp);
 
-void printReg(struct stReg *preg);
 uint32_t parseHex(char *str);
 
 #define INST_V_BIT     bit1

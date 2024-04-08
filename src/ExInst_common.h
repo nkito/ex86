@@ -74,6 +74,10 @@
 //------------------------------------------------------------
 // 
 //------------------------------------------------------------
+
+#define ECODE_SEGMENT_GDT_LDT(seg)    ((seg) & (~0x3))
+#define ECODE_SEGMENT_IDT(seg, ext)  (((seg) & (~0x7)) | 0x2 | (ext ? 0x1 : 0))
+
 #define ENTER_UD  do{                           \
     pM->reg.error_code  = 0;                    \
     pM->reg.fault      |= (1<<INTNUM_UDOPCODE); \
@@ -137,6 +141,13 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
             if(pM->reg.descc_ss.big){ REG_ESP-=2; }else{ REG_SP-=2; }                    \
         }                                                                                         \
     }else{                                                                                        \
+        if( MODE_PROTECTED32 ){ \
+            if( (  pM->reg.descc_ss.big  && (REG_ESP < pM->reg.descc_ss.limit_min || REG_ESP > pM->reg.descc_ss.limit_max)) || \
+                ((!pM->reg.descc_ss.big) && (REG_SP  < pM->reg.descc_ss.limit_min || REG_SP  > pM->reg.descc_ss.limit_max)) ){ \
+                    printf("<%x %x %x %x %x>", pM->reg.descc_ss.big, REG_ESP, REG_SS_BASE, pM->reg.descc_ss.limit_min, pM->reg.descc_ss.limit_max);  \
+                    ENTER_SS(0); \
+            } \
+        } \
         uint32_t __tmp_sp4 = (pM->reg.descc_ss.big) ? REG_ESP-4 : ((REG_SP-4)&0xffff);   \
         writeDataMemDoubleWord(pM, REG_SS_BASE + __tmp_sp4, (x));                                 \
         if(pM->reg.descc_ss.big){ REG_ESP-=4; }else{ REG_SP-=4; }                        \
@@ -153,6 +164,13 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
             if(pM->reg.descc_ss.big){ REG_ESP+=2; }else{ REG_SP+=2; }                               \
         }                                                                                                    \
     }else{                                                                                                   \
+        if( MODE_PROTECTED32 ){ \
+            if( (  pM->reg.descc_ss.big  && (REG_ESP < pM->reg.descc_ss.limit_min || REG_ESP > pM->reg.descc_ss.limit_max)) || \
+                ((!pM->reg.descc_ss.big) && (REG_SP  < pM->reg.descc_ss.limit_min || REG_SP  > pM->reg.descc_ss.limit_max)) ){ \
+                    printf("<%x %x %x %x %x>", pM->reg.descc_ss.big, REG_ESP, REG_SS_BASE, pM->reg.descc_ss.limit_min, pM->reg.descc_ss.limit_max);  \
+                    ENTER_SS(0); \
+            } \
+        } \
         (x) = readDataMemDoubleWord(pM, REG_SS_BASE + ((pM->reg.descc_ss.big) ? REG_ESP : REG_SP)); \
         if(pM->reg.descc_ss.big){ REG_ESP+=4; }else{ REG_SP+=4; }                                   \
     }                                                                                                        \

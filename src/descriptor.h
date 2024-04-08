@@ -82,7 +82,7 @@ void loadTaskState       (struct stMachineState *pM);
 // Functions for gate descriptors (Call, Trap, Interrupt, Task gates)
 void loadIntDesc   (struct stMachineState *pM, uint8_t   int_num, struct stGateDesc *pID);
 
-uint8_t getDescType(struct stMachineState *pM, uint16_t selector);
+int getDescType(struct stMachineState *pM, uint16_t selector, uint8_t *pAccess);
 
 #endif
 

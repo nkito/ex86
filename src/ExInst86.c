@@ -1926,8 +1926,15 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
 
         if(DEBUG) EXI_LOG_PRINTF("LCALL %x:%x\n", val2, val);
 
-        if(  MODE_PROTECTED32 && (!SEGACCESS_IS_CSEG( getDescType(pM, val2) ))  ){
-            return EX_RESULT_UNKNOWN;
+        if(  MODE_PROTECTED32 ){
+            uint8_t access;
+            if( ! getDescType(pM, val2, &access) ){
+                ENTER_GP( ECODE_SEGMENT_GDT_LDT(val2) );
+            }
+
+            if( !SEGACCESS_IS_CSEG(access) ){
+                return EX_RESULT_UNKNOWN;
+            }
         }
 
         if(PREFIX_OP32){ 
@@ -1956,8 +1963,14 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
 
         if(DEBUG){ EXI_LOG_PRINTF("LCALL %x:%x\n", new_cs, new_ip); }
 
-        if(  MODE_PROTECTED32 && (!SEGACCESS_IS_CSEG( getDescType(pM, new_cs) ))  ){
-            return EX_RESULT_UNKNOWN;
+        if(  MODE_PROTECTED32 ){
+            uint8_t access;
+            if( ! getDescType(pM, new_cs, &access) ){
+                ENTER_GP( ECODE_SEGMENT_GDT_LDT(new_cs) );
+            }
+            if( !SEGACCESS_IS_CSEG(access) ){
+                return EX_RESULT_UNKNOWN;
+            }
         }
 
         if(PREFIX_OP32){ 
@@ -2019,7 +2032,10 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
         }
 
         if( pM->emu.emu_cpu >= EMU_CPU_80286 && MODE_PROTECTED32 ){
-            int8_t access = getDescType(pM, val2);
+            uint8_t access;
+            if( ! getDescType(pM, val2, &access) ){
+                ENTER_GP( ECODE_SEGMENT_GDT_LDT(val2) );
+            }
             if( SEGACCESS_IS_TSS32_AVAIL(access) ){
                 struct stRawSegmentDesc RS;
                 uint8_t RPL = (val2 & 3);
@@ -2033,7 +2049,7 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
                 if((RS.limit < TSS_MINIMUM_LIMIT_VALUE_32BIT) || 
                     pM->reg.cpl > SEGACCESS_DPL(RS.access)    ||
                     RPL         > SEGACCESS_DPL(RS.access) ){
-                    ENTER_TS(val2);
+                    ENTER_TS( ECODE_SEGMENT_GDT_LDT(val2) );
                 }
 
                 // Save current register values and clear busy flag of the TSS
@@ -2326,9 +2342,13 @@ int exIRET(struct stMachineState *pM, uint32_t pointer){
         // ---------------------------
         // This code is not checked
         // ---------------------------
+        uint8_t access;
+        if( ! getDescType(pM, next_tr, &access) ){
+            ENTER_GP( ECODE_SEGMENT_GDT_LDT(next_tr) );
+        }
 
-        if( ! SEGACCESS_IS_TSS32(getDescType(pM, next_tr)) ){
-            ENTER_TS(next_tr);
+        if( ! SEGACCESS_IS_TSS32(access) ){
+            ENTER_TS( ECODE_SEGMENT_GDT_LDT(next_tr) );
         }
 
         // load a TSS descriptor pointed by "next_tr"
@@ -2338,7 +2358,7 @@ int exIRET(struct stMachineState *pM, uint32_t pointer){
         if((RS.limit < TSS_MINIMUM_LIMIT_VALUE_32BIT) || 
             pM->reg.cpl > SEGACCESS_DPL(RS.access)    ||
             RPL         > SEGACCESS_DPL(RS.access) ){
-            ENTER_TS(next_tr);
+            ENTER_TS( ECODE_SEGMENT_GDT_LDT(next_tr) );
         }
 
         // Save current register values and clear busy flag of the TSS
