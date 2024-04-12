@@ -142,8 +142,8 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
         }                                                                                         \
     }else{                                                                                        \
         if( MODE_PROTECTED32 ){ \
-            if( (  pM->reg.descc_ss.big  && (REG_ESP < pM->reg.descc_ss.limit_min || REG_ESP > pM->reg.descc_ss.limit_max)) || \
-                ((!pM->reg.descc_ss.big) && (REG_SP  < pM->reg.descc_ss.limit_min || REG_SP  > pM->reg.descc_ss.limit_max)) ){ \
+            if( (  pM->reg.descc_ss.big  && (REG_ESP-4 < pM->reg.descc_ss.limit_min || REG_ESP-1 > pM->reg.descc_ss.limit_max)) || \
+                ((!pM->reg.descc_ss.big) && (REG_SP-4  < pM->reg.descc_ss.limit_min || REG_SP-1  > pM->reg.descc_ss.limit_max)) ){ \
                     printf("<%x %x %x %x %x>", pM->reg.descc_ss.big, REG_ESP, REG_SS_BASE, pM->reg.descc_ss.limit_min, pM->reg.descc_ss.limit_max);  \
                     ENTER_SS(0); \
             } \
@@ -165,8 +165,8 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
         }                                                                                                    \
     }else{                                                                                                   \
         if( MODE_PROTECTED32 ){ \
-            if( (  pM->reg.descc_ss.big  && (REG_ESP < pM->reg.descc_ss.limit_min || REG_ESP > pM->reg.descc_ss.limit_max)) || \
-                ((!pM->reg.descc_ss.big) && (REG_SP  < pM->reg.descc_ss.limit_min || REG_SP  > pM->reg.descc_ss.limit_max)) ){ \
+            if( (  pM->reg.descc_ss.big  && (REG_ESP < pM->reg.descc_ss.limit_min || REG_ESP+3 > pM->reg.descc_ss.limit_max)) || \
+                ((!pM->reg.descc_ss.big) && (REG_SP  < pM->reg.descc_ss.limit_min || REG_SP +3 > pM->reg.descc_ss.limit_max)) ){ \
                     printf("<%x %x %x %x %x>", pM->reg.descc_ss.big, REG_ESP, REG_SS_BASE, pM->reg.descc_ss.limit_min, pM->reg.descc_ss.limit_max);  \
                     ENTER_SS(0); \
             } \

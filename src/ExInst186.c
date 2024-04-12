@@ -274,9 +274,11 @@ int exIMULimm(struct stMachineState *pM, uint32_t pointer){
 
 
 int exENTER(struct stMachineState *pM, uint32_t pointer){
+    struct stOpl op;
     uint32_t allocsize, nestlevel, frametmp;
-
     uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint32_t saved_ad32 = PREFIX_AD32;
+
 
     if(inst0 != 0xc8) return EX_RESULT_UNKNOWN;
 
@@ -294,24 +296,37 @@ int exENTER(struct stMachineState *pM, uint32_t pointer){
         frametmp = REG_SP;
     }
 
+    op.type = OpTypeMemWithSeg_Reg;
+    op.reg  = SEGREG_NUM_SS; // no segment override is possible (See: iAPX286 Programmers Reference Manual B-44)
+    op.addr = REG_NUM_BP; // <- specify the register number (not the value of the register)
+    op.width= INST_W_WORDACC;
+
     if( nestlevel > 0 ){
         // TODO: the startpoint(i=0) is correct? ("i=1" is correct. Ref. IA32 Intel Archtecture Software Developpers Mannual, Japanese Ed., 2004.)
         for(int i=1; i < nestlevel; i++){  
             if( PREFIX_OP32 ){
                 if( pM->reg.descc_ss.big ){
                     REG_EBP -= 4;
-                    PUSH_TO_STACK( REG_EBP );
+                    PREFIX_AD32 = 1; // use EBP for address
+                    PUSH_TO_STACK( readOpl(pM, &op) );
+                    PREFIX_AD32 = saved_ad32;
                 }else{
                     REG_BP  -= 4;
-                    PUSH_TO_STACK( REG_BP  );
+                    PREFIX_AD32 = 0; // use BP for address
+                    PUSH_TO_STACK (readOpl(pM, &op) );
+                    PREFIX_AD32 = saved_ad32;
                 }
             }else{
                 if( pM->reg.descc_ss.big ){
                     REG_EBP -= 2;
-                    PUSH_TO_STACK( REG_EBP );
+                    PREFIX_AD32 = 1; // use EBP for address
+                    PUSH_TO_STACK( readOpl(pM, &op) );
+                    PREFIX_AD32 = saved_ad32;
                 }else{
                     REG_BP  -= 2;
-                    PUSH_TO_STACK( REG_BP  );
+                    PREFIX_AD32 = 0; // use BP for address
+                    PUSH_TO_STACK( readOpl(pM, &op)  );
+                    PREFIX_AD32 = saved_ad32;
                 }
             }
         }

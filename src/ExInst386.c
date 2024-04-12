@@ -4,7 +4,7 @@
 #include "i8086.h"
 #include "ALUop.h"
 #include "ExInst_common.h"
-//#include "ExInst86.h"
+#include "ExInst86.h"
 #include "ExInst386.h"
 #include "decode.h"
 #include "descriptor.h"
@@ -35,6 +35,7 @@ int exUD(struct stMachineState *pM, uint32_t pointer){
         UPDATE_IP(2+size);
     }
 
+    // exception caused by this instruction saves its pointer (and not the following instruction)
     ENTER_UD;
 
     return EX_RESULT_SUCCESS; // never reach here
@@ -106,7 +107,7 @@ int exShiftDouble(struct stMachineState *pM, uint32_t pointer){
         if( val1 == 0 ) REG_FLAGS |= (1<<FLAGS_BIT_ZF);
         else            REG_FLAGS &=~(1<<FLAGS_BIT_ZF);
 
-        if(calcParityWord(val1)) REG_FLAGS |= (1<<FLAGS_BIT_PF);
+        if(calcParityByte(val1)) REG_FLAGS |= (1<<FLAGS_BIT_PF);
         else                     REG_FLAGS &=~(1<<FLAGS_BIT_PF);
 
     }else{ // SHRD
@@ -131,7 +132,7 @@ int exShiftDouble(struct stMachineState *pM, uint32_t pointer){
         if( val1 == 0 ) REG_FLAGS |= (1<<FLAGS_BIT_ZF);
         else            REG_FLAGS &=~(1<<FLAGS_BIT_ZF);
 
-        if(calcParityWord(val1)) REG_FLAGS |= (1<<FLAGS_BIT_PF);
+        if(calcParityByte(val1)) REG_FLAGS |= (1<<FLAGS_BIT_PF);
         else                     REG_FLAGS &=~(1<<FLAGS_BIT_PF);
     }
 
@@ -237,6 +238,10 @@ int exLARLSL(struct stMachineState *pM, uint32_t pointer){
         return EX_RESULT_UNKNOWN;
     }
 
+    if( (!MODE_PROTECTED) || MODE_PROTECTEDVM ){
+        enterINT(pM, INTNUM_UDOPCODE, REG_CS, REG_IP);
+    }
+
     size = decode_mod_rm(pM, pointer+2, INST_W_WORDACC, &op1); // source
     decode_reg2         (pM, pointer+2, INST_W_WORDACC, &op2); // destination
 
@@ -261,7 +266,7 @@ int exLARLSL(struct stMachineState *pM, uint32_t pointer){
     }else{
         if( (seg & (~7)) > pM->reg.descc_ldt.limit ) invalid = 1;
     }
-    if( (seg & (~7)) == 0 ){
+    if( seg <= 3 ){
         invalid = 1;
     }
 
@@ -270,8 +275,7 @@ int exLARLSL(struct stMachineState *pM, uint32_t pointer){
 
         if( inst1 == 0x02 ){
             result  = (((uint32_t)RS.access) <<  8);
-            result |= (((uint32_t)RS.flags)  << 20);
-            result |= (RS.limit & 0xf0000);
+            result |= (((uint32_t)RS.flags)  << 20); /* bits 16:19 are undefined */
         }else{
             if( RS.access & SEGACCESS_CODE_DATA_SEG ){
                 // data or code degment

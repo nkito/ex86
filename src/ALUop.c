@@ -5,25 +5,6 @@
 #include "ALUop.h"
 #include "ExInst_common.h"
 
-uint32_t calcParityDoubleWord(uint32_t val){
-    uint32_t p;
-    p = ((val&0xffff) ^ ((val>>16)&0xffff));
-    p = ((p  &  0xff) ^ ((p  >> 8)&  0xff));
-    p = ((p  &   0xf) ^ ((p  >> 4)&   0xf));
-    p = ((p  &   0x3) ^ ((p  >> 2)&   0x3));
-    p = ((p  &   0x1) ^ ((p  >> 1)&   0x1));
-    return (p^1);
-}
-
-uint16_t calcParityWord(uint16_t val){
-    uint16_t p;
-    p = ((val&0xff) ^ ((val>>8)&0xff));
-    p = ((p  & 0xf) ^ ((p  >>4)& 0xf));
-    p = ((p  & 0x3) ^ ((p  >>2)& 0x3));
-    p = ((p  & 0x1) ^ ((p  >>1)& 0x1));
-    return (p^1);
-}
-
 uint8_t calcParityByte(uint8_t val){
     uint8_t p;
     p = ((val&0xf) ^ ((val>>4)&0xf));
@@ -80,7 +61,7 @@ uint32_t ALUOPAdd(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isW
         sign,      // sign flag
         zero,      // zero flag
         (op1&0xf) + (op2&0xf) >= 0x10 ? 1 : 0, // auxillary carry flag
-        isWord ? ((pM->prefix.data32) ? calcParityDoubleWord(result32) : calcParityWord(result)) : calcParityByte(result8),
+        calcParityByte(result8), // parity of the low byte
         carry ); // carry flag (unsigned overflow)
 
     return isWord ? ((pM->prefix.data32) ? result32 : result) : result8;
@@ -126,7 +107,7 @@ uint32_t ALUOPSub(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isW
         sign,      // sign flag
         zero,      // zero flag
         (op1&0xf) < (nop2&0xf) ? 1 : 0, // auxillary carry flag
-        isWord ? ((pM->prefix.data32) ? calcParityDoubleWord(result32) : calcParityWord(result)) : calcParityByte(result8),
+        calcParityByte(result8),
         carry ); // carry flag (unsigned overflow)
 
 
@@ -179,7 +160,7 @@ uint32_t ALUOPAdd3(struct stMachineState *pM, uint32_t op1, uint32_t op2, uint32
         sign,      // sign flag
         zero,      // zero flag
         (op1&0xf) + (op2&0xf) + (op3&0xf) >= 0x10 ? 1 : 0, // auxillary carry flag
-        isWord ? ((pM->prefix.data32) ? calcParityDoubleWord(result32) : calcParityWord(result)) : calcParityByte(result8),
+        calcParityByte(result8),
         carry );   // carry flag
 
 
@@ -225,7 +206,7 @@ uint32_t ALUOPSub3(struct stMachineState *pM, uint32_t op1, uint32_t op2, uint32
         sign,      // sign flag
         zero,      // zero flag
         (op1&0xf) < ((op2&0xf) + (op3&0xf)) ? 1 : 0, // auxillary carry flag
-        isWord ? ((pM->prefix.data32) ? calcParityDoubleWord(result32) : calcParityWord(result)) : calcParityByte(result8),
+        calcParityByte(result8),
         carry );   // carry flag (unsigned overflow)
 
 
@@ -241,7 +222,7 @@ uint32_t ALUOPand(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isW
         0,                     // overflow
         sign,                  // sign flag
         result == 0 ? 1 : 0,   // zero flag
-        calcParityDoubleWord(result),// parity flag
+        calcParityByte(result),// parity flag
         0 );                   // carry flag
     return result;
 }
@@ -255,7 +236,7 @@ uint32_t ALUOPor(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isWo
         0,                     // overflow
         sign,                  // sign flag
         result == 0 ? 1 : 0,   // zero flag
-        calcParityDoubleWord(result),// parity flag
+        calcParityByte(result),// parity flag
         0 );                   // carry flag
     return result;
 }
@@ -269,7 +250,7 @@ uint32_t ALUOPxor(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isW
         0,                     // overflow
         sign,                  // sign flag
         result == 0 ? 1 : 0,   // zero flag
-        calcParityDoubleWord(result),// parity flag
+        calcParityByte(result),// parity flag
         0 );                   // carry flag
     return result;
 }
