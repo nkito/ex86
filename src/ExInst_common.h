@@ -59,7 +59,7 @@
 #define MODE_PROTECTED32   (MODE_PROTECTED && !(REG_EFLAGS & (1<<EFLAGS_BIT_VM)))
 #define MODE_PROTECTEDVM   (MODE_PROTECTED &&  (REG_EFLAGS & (1<<EFLAGS_BIT_VM)))
 
-#define IOPL(x)   ( ((x) & EFLAGS_BIT_IOPL_MASK) >> EFLAGS_BIT_IOPL )
+#define IOPL(x)   ( ((x) & FLAGS_BIT_IOPL_MASK) >> FLAGS_BIT_IOPL )
 
 #define PREFIX_SEG  (pM->prefix.seg)
 #define PREFIX_REPZ (pM->prefix.repz)

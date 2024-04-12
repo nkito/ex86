@@ -335,9 +335,10 @@ uint32_t parseHex(char *str);
 #define FLAGS_BIT_DF 10 /* direction flag */
 #define FLAGS_BIT_OF 11 /* overflow flag */
 
-#define EFLAGS_BIT_IOPL 12 /* I/O privilege level */
-#define EFLAGS_BIT_IOPL_MASK (3<<EFLAGS_BIT_IOPL) /* mask for I/O privilege level */
-#define EFLAGS_BIT_NT   14 /* nested task flag */
+#define FLAGS_BIT_IOPL 12 /* I/O privilege level */
+#define FLAGS_BIT_IOPL_MASK (3<<FLAGS_BIT_IOPL) /* mask for I/O privilege level */
+#define FLAGS_BIT_NT   14 /* nested task flag */
+
 #define EFLAGS_BIT_RF   16 /* resume flag */
 #define EFLAGS_BIT_VM   17 /* virtual mode */
 #define EFLAGS_BIT_AC   18 /* alignment check */

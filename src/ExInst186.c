@@ -297,7 +297,7 @@ int exENTER(struct stMachineState *pM, uint32_t pointer){
     }
 
     op.type = OpTypeMemWithSeg_Reg;
-    op.reg  = SEGREG_NUM_SS; // no segment override is possible (See: iAPX286 Programmers Reference Manual B-44)
+    op.reg  = SEGREG_NUM_SS; // TODO: check possibility of segment override with a prefix instruction
     op.addr = REG_NUM_BP; // <- specify the register number (not the value of the register)
     op.width= INST_W_WORDACC;
 

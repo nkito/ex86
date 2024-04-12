@@ -56,20 +56,20 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
             PREFIX_OP32 = 1;
             PREFIX_AD32 = 1;
             saved_eflag = readFLAGS(pM);
-            REG_EFLAGS &= ~((1<<FLAGS_BIT_IF)|(1<<FLAGS_BIT_TF)|(1<<EFLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
+            REG_EFLAGS &= ~((1<<FLAGS_BIT_IF)|(1<<FLAGS_BIT_TF)|(1<<FLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
             break;
         case SYSDESC_TYPE_TRAPGATE32:
             PREFIX_OP32 = 1;
             PREFIX_AD32 = 1;
             saved_eflag = readFLAGS(pM);
-            REG_EFLAGS &= ~((1<<FLAGS_BIT_TF)|(1<<EFLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
+            REG_EFLAGS &= ~((1<<FLAGS_BIT_TF)|(1<<FLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
             break;
         default:
             logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is type 0x%x  (CS:EIP %x:%x)\n", int_num, (GD.access & 0x0f), pM->reg.current_cs, pM->reg.current_eip);
             PREFIX_OP32 = 1;
             PREFIX_AD32 = 1;
             saved_eflag = readFLAGS(pM);
-            REG_EFLAGS &= ~((1<<FLAGS_BIT_IF)|(1<<FLAGS_BIT_TF)|(1<<EFLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
+            REG_EFLAGS &= ~((1<<FLAGS_BIT_IF)|(1<<FLAGS_BIT_TF)|(1<<FLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
             break;
     }
 
@@ -698,14 +698,14 @@ int exPUSHFPOPF(struct stMachineState *pM, uint32_t pointer){
         if( MODE_PROTECTEDVM ){
             if( (PREFIX_OP32 ? IOPL(REG_EFLAGS) : IOPL(REG_FLAGS)) == 3  ){
                 if( PREFIX_OP32 ){
-                    mask  = (EFLAGS_BIT_IOPL_MASK | (1<<EFLAGS_BIT_VM));
+                    mask  = (FLAGS_BIT_IOPL_MASK | (1<<EFLAGS_BIT_VM));
 
                     REG_EFLAGS &= mask;
                     REG_EFLAGS |= (flag & (~mask));
                     REG_EFLAGS &= ~(1<<EFLAGS_BIT_RF);
                 }else{
-                    REG_FLAGS &= EFLAGS_BIT_IOPL_MASK;
-                    REG_FLAGS |= (flag & (~EFLAGS_BIT_IOPL_MASK));
+                    REG_FLAGS &= FLAGS_BIT_IOPL_MASK;
+                    REG_FLAGS |= (flag & (~FLAGS_BIT_IOPL_MASK));
                 }
             }else{
                 ENTER_GP(0);
@@ -725,15 +725,15 @@ int exPUSHFPOPF(struct stMachineState *pM, uint32_t pointer){
                     REG_EFLAGS &= (1<<EFLAGS_BIT_VM);
                     REG_EFLAGS |= (flag & (~(1<<EFLAGS_BIT_VM)));
                 }else{
-                    mask  = (EFLAGS_BIT_IOPL_MASK | (1<<EFLAGS_BIT_VM));
+                    mask  = (FLAGS_BIT_IOPL_MASK | (1<<EFLAGS_BIT_VM));
 
                     REG_EFLAGS &= mask;
                     REG_EFLAGS |= (flag & (~mask));
                     REG_EFLAGS &= ~(1<<EFLAGS_BIT_RF);
                 }
             }else{
-                REG_FLAGS &= EFLAGS_BIT_IOPL_MASK;
-                REG_FLAGS |= (flag & (~EFLAGS_BIT_IOPL_MASK));
+                REG_FLAGS &= FLAGS_BIT_IOPL_MASK;
+                REG_FLAGS |= (flag & (~FLAGS_BIT_IOPL_MASK));
             }
         }
     }else{
@@ -2364,6 +2364,104 @@ int exINTO(struct stMachineState *pM, uint32_t pointer){
 
     return EX_RESULT_SUCCESS;
 }
+
+
+int exIRET_real(struct stMachineState *pM, uint32_t pointer){
+    uint32_t val1, val2, val3;
+
+    POP_FROM_STACK( val1 ); // (E)IP
+    POP_FROM_STACK( val2 ); // CS
+    POP_FROM_STACK( val3 ); // (E)FLAGS
+
+    if( PREFIX_OP32 ){
+        REG_EIP = val1;
+
+        // this mask is based on "Intel 64 and IA-32 Architectures Software Developer’s Manual," order# 325462-083US, March 2024.
+        REG_EFLAGS &= 0x1a0000;
+        REG_EFLAGS |= (val3 & 0x257FD5);
+    }else{
+        REG_EIP = (val1&0xffff);
+        REG_FLAGS  = val3;
+    }
+
+    updateSegReg(pM, SEGREG_NUM_CS, val2);
+
+    return EX_RESULT_SUCCESS;    
+}
+
+int exIRET_VM86(struct stMachineState *pM, uint32_t pointer){
+    uint32_t val1, val2, val3;
+
+    if( IOPL(REG_EFLAGS) < 3 ){
+        ENTER_GP(0);
+    }
+
+    POP_FROM_STACK( val1 ); // (E)IP
+    POP_FROM_STACK( val2 ); // CS
+    POP_FROM_STACK( val3 ); // (E)FLAGS
+
+    if( PREFIX_OP32 ){
+        REG_EIP = val1;
+
+        uint32_t mask  = (FLAGS_BIT_IOPL_MASK | (1<<EFLAGS_BIT_VM));
+
+        REG_EFLAGS &= mask;
+        REG_EFLAGS |= (val3 & (~mask));
+//        REG_EFLAGS &= ~(1<<EFLAGS_BIT_RF);
+    }else{
+        REG_EIP = (val1&0xffff);
+
+        REG_FLAGS &= FLAGS_BIT_IOPL_MASK;
+        REG_FLAGS |= (val3 & (~FLAGS_BIT_IOPL_MASK));
+    }
+
+    updateSegReg(pM, SEGREG_NUM_CS, val2);
+
+    return EX_RESULT_SUCCESS;    
+}
+
+int exIRET_NT(struct stMachineState *pM, uint32_t pointer){
+    // ---------------------------
+    // This code is not checked
+    // ---------------------------
+
+    struct stRawSegmentDesc RS;
+    uint16_t next_tr;
+    next_tr = readDataMemByteAsSV(pM, pM->reg.descc_tr.base+0);
+    next_tr|=(readDataMemByteAsSV(pM, pM->reg.descc_tr.base+1)<<8);
+    uint8_t  RPL     = (next_tr & 3);
+
+    uint8_t access;
+    if( ! getDescType(pM, next_tr, &access) ){
+        ENTER_GP( ECODE_SEGMENT_GDT_LDT(next_tr) );
+    }
+
+    if( ! SEGACCESS_IS_TSS32(access) ){
+        ENTER_TS( ECODE_SEGMENT_GDT_LDT(next_tr) );
+    }
+
+    // load a TSS descriptor pointed by "next_tr"
+    // loading values from TSS is done after checking the descriptor
+    loadTaskRegister(pM, next_tr, &RS);
+
+    if((RS.limit < TSS_MINIMUM_LIMIT_VALUE_32BIT) || 
+        pM->reg.cpl > SEGACCESS_DPL(RS.access)    ||
+        RPL         > SEGACCESS_DPL(RS.access) ){
+        ENTER_TS( ECODE_SEGMENT_GDT_LDT(next_tr) );
+    }
+
+    // Save current register values and clear busy flag of the TSS
+    unloadTaskRegister(pM, pM->reg.current_eip + 1);
+
+    // Change the task register and load register value from TSS
+    pM->reg.tr       = next_tr;
+    pM->reg.descc_tr = RS;
+    pM->reg.cr[0]   |= (1<<CR0_BIT_TS);
+    loadTaskState(pM);
+
+    return EX_RESULT_SUCCESS;
+}
+
 int exIRET(struct stMachineState *pM, uint32_t pointer){
     uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
     uint32_t val1, val2, val3, val4, val5;
@@ -2372,129 +2470,93 @@ int exIRET(struct stMachineState *pM, uint32_t pointer){
     if( inst0  != 0xcf ) return EX_RESULT_UNKNOWN; 
 	if( DEBUG ) EXI_LOG_PRINTF("IRET\n");
 
+    //--------------------------------------------
+    // Processing for real and virtual 8086 modes
+    //--------------------------------------------
+    if( !MODE_PROTECTED   ) return exIRET_real(pM, pointer);
+    if(  MODE_PROTECTEDVM ) return exIRET_VM86(pM, pointer);
+
+    //--------------------------------------------
+    // Processing for protected mode
+    //--------------------------------------------
+    if( REG_EFLAGS & (1<<FLAGS_BIT_NT) ) return exIRET_NT(pM, pointer);
+
+
     uint32_t saved_eflags = REG_EFLAGS;
-
-    if( MODE_PROTECTED32 && (REG_EFLAGS & (1<<EFLAGS_BIT_NT)) ){
-        struct stRawSegmentDesc RS;
-        uint16_t next_tr;
-        next_tr = readDataMemByteAsSV(pM, pM->reg.descc_tr.base+0);
-        next_tr|=(readDataMemByteAsSV(pM, pM->reg.descc_tr.base+1)<<8);
-        uint8_t  RPL     = (next_tr & 3);
-
-        // ---------------------------
-        // This code is not checked
-        // ---------------------------
-        uint8_t access;
-        if( ! getDescType(pM, next_tr, &access) ){
-            ENTER_GP( ECODE_SEGMENT_GDT_LDT(next_tr) );
-        }
-
-        if( ! SEGACCESS_IS_TSS32(access) ){
-            ENTER_TS( ECODE_SEGMENT_GDT_LDT(next_tr) );
-        }
-
-        // load a TSS descriptor pointed by "next_tr"
-        // loading values from TSS is done after checking the descriptor
-        loadTaskRegister(pM, next_tr, &RS);
-
-        if((RS.limit < TSS_MINIMUM_LIMIT_VALUE_32BIT) || 
-            pM->reg.cpl > SEGACCESS_DPL(RS.access)    ||
-            RPL         > SEGACCESS_DPL(RS.access) ){
-            ENTER_TS( ECODE_SEGMENT_GDT_LDT(next_tr) );
-        }
-
-        // Save current register values and clear busy flag of the TSS
-        unloadTaskRegister(pM, pM->reg.current_eip + 1);
-
-        // Change the task register and load register value from TSS
-        pM->reg.tr       = next_tr;
-        pM->reg.descc_tr = RS;
-        pM->reg.cr[0]   |= (1<<CR0_BIT_TS);
-        loadTaskState(pM);
-        return EX_RESULT_SUCCESS;
-    }
-
-
-    if( MODE_PROTECTEDVM && (((REG_EFLAGS>>EFLAGS_BIT_IOPL)&3) < 3) ){
-        ENTER_GP(0);
-    }
 
     POP_FROM_STACK( val1 ); // (E)IP
     POP_FROM_STACK( val2 ); // CS
     POP_FROM_STACK( val3 ); // (E)FLAGS
 
-    if( MODE_PROTECTED && (!CODESEG_D_BIT) ){
-        logfile_printf(LOGCAT_CPU_EXE | LOGLV_INFO3, "val %x %x %x\n", val1, val2, val3);
+    if( pM->reg.cpl == 0 && (val3 & (1<<EFLAGS_BIT_VM)) ){
+        // return to VM86 mode
+
+        logfile_printf(LOGCAT_CPU_EXE | LOGLV_INFO3, "Entering VM86 mode (pointer %x)\n", pointer);
+
+        uint32_t vala, valb, valc, vald;
+
+        REG_EFLAGS = val3;
+
+        updateSegReg(pM, SEGREG_NUM_CS, val2);
+        REG_EIP = (PREFIX_OP32 ? val1 : (val1&0xffff));
+
+        int saved_op32 = PREFIX_OP32;
+        PREFIX_OP32 = 1;
+        POP_FROM_STACK( val4 ); // ESP
+        POP_FROM_STACK( val5 ); // SS
+        POP_FROM_STACK( vala ); // ES
+        POP_FROM_STACK( valb ); // DS
+        POP_FROM_STACK( valc ); // FS
+        POP_FROM_STACK( vald ); // GS
+
+        updateSegReg(pM, SEGREG_NUM_SS, val5);
+        REG_ESP = val4;
+
+        updateSegReg(pM, SEGREG_NUM_ES, vala);
+        updateSegReg(pM, SEGREG_NUM_DS, valb);
+        updateSegReg(pM, SEGREG_NUM_FS, valc);
+        updateSegReg(pM, SEGREG_NUM_GS, vald);
+
+        pM->reg.cpl = 3;
+
+        PREFIX_OP32 = saved_op32;
+
+        return EX_RESULT_SUCCESS;
+    }
+    
+    
+    if( (val2&0x3) > pM->reg.cpl ){ // is going to an outer level
+        POP_FROM_STACK( val4 ); // ESP
+        POP_FROM_STACK( val5 ); // SS
+
+        goOuter = 1;
     }
 
+    uint32_t flag_mask = 
+        ( (1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_AF) | 
+          (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_SF) | (1<<FLAGS_BIT_TF) | 
+          (1<<FLAGS_BIT_DF) | (1<<FLAGS_BIT_OF) | (1<<FLAGS_BIT_NT) );
 
-    if( MODE_PROTECTED ){
-        if( pM->reg.cpl == 0 && (val3 & (1<<EFLAGS_BIT_VM)) ){
-            // return to VM86 mode
+    if( PREFIX_OP32 ){
+        REG_EIP     = val1;
+        REG_EFLAGS &= (~flag_mask);
+        REG_EFLAGS |= (val3 & flag_mask);
 
-            logfile_printf(LOGCAT_CPU_EXE | LOGLV_INFO3, "Entering VM86 mode (pointer %x)\n", pointer);
-
-            uint32_t vala, valb, valc, vald;
-
-            REG_EFLAGS = val3;
-
-            PREFIX_OP32 = 1;
-            POP_FROM_STACK( val4 ); // ESP
-            POP_FROM_STACK( val5 ); // SS
-            POP_FROM_STACK( vala ); // ES
-            POP_FROM_STACK( valb ); // DS
-            POP_FROM_STACK( valc ); // FS
-            POP_FROM_STACK( vald ); // GS
-
-            updateSegReg(pM, SEGREG_NUM_ES, vala);
-            updateSegReg(pM, SEGREG_NUM_DS, valb);
-            updateSegReg(pM, SEGREG_NUM_FS, valc);
-            updateSegReg(pM, SEGREG_NUM_GS, vald);
-
-            pM->reg.cpl = 3;
-            goOuter = 1;
-
-        }else if( (val2&0x3) > pM->reg.cpl ){ // is going to an outer level
-            POP_FROM_STACK( val4 ); // ESP
-            POP_FROM_STACK( val5 ); // SS
-
-            goOuter = 1;
-        }
-    }
-
-    if( PREFIX_OP32 ) REG_EIP = val1;
-    else              REG_EIP = (val1&0xffff);
-
-    if( ! MODE_PROTECTED){
-        if( PREFIX_OP32 ) REG_EFLAGS = val3;
-        else              REG_FLAGS  = val3;
-    }else if( MODE_PROTECTEDVM ){
-        if( (PREFIX_OP32 ? IOPL(REG_EFLAGS) : IOPL(REG_FLAGS)) == 3  ){
-            if( PREFIX_OP32 ){
-                uint32_t mask  = (EFLAGS_BIT_IOPL_MASK | (1<<EFLAGS_BIT_VM));
-
-                REG_EFLAGS &= mask;
-                REG_EFLAGS |= (val3 & (~mask));
-                REG_EFLAGS &= ~(1<<EFLAGS_BIT_RF);
-            }else{
-                REG_FLAGS &= EFLAGS_BIT_IOPL_MASK;
-                REG_FLAGS |= (val3 & (~EFLAGS_BIT_IOPL_MASK));
-            }
-        }else{
-            ENTER_GP(0);
-        }
+        REG_EFLAGS &= ~((1<<EFLAGS_BIT_AC)|(1<<EFLAGS_BIT_RF));
+        REG_EFLAGS |= (val3 & ((1<<EFLAGS_BIT_AC)|(1<<EFLAGS_BIT_RF)));
     }else{
-        if( PREFIX_OP32 ) REG_EFLAGS = val3;
-        else              REG_FLAGS  = val3;
+        REG_EIP     = (val1&0xffff);
+        REG_EFLAGS &= (~flag_mask);
+        REG_EFLAGS |= (val3 & flag_mask);
+    }
 
-        if( pM->reg.cpl > IOPL(saved_eflags) ){
-            REG_EFLAGS &= (1<<FLAGS_BIT_IF);
-            REG_EFLAGS |= (saved_eflags & (1<<FLAGS_BIT_IF));
-        }
-        if( pM->reg.cpl != 0 ){
-            REG_EFLAGS &= ~EFLAGS_BIT_IOPL_MASK;
-            REG_EFLAGS |= (saved_eflags & EFLAGS_BIT_IOPL_MASK);
-        }
+    if( pM->reg.cpl <= IOPL(saved_eflags) ){
+        REG_EFLAGS &= ~(1<<FLAGS_BIT_IF);
+        REG_EFLAGS |= (val3 & (1<<FLAGS_BIT_IF));
+    }
+    if( pM->reg.cpl == 0 ){
+        REG_EFLAGS &= ~FLAGS_BIT_IOPL_MASK;
+        REG_EFLAGS |= (val3 & FLAGS_BIT_IOPL_MASK);
     }
 
     // This line may cause a fault. Therefore, loading the values from the stack was done before it
@@ -2504,12 +2566,10 @@ int exIRET(struct stMachineState *pM, uint32_t pointer){
         updateSegReg(pM, SEGREG_NUM_SS, val5);
         REG_ESP = val4;
 
-        if( MODE_PROTECTED && ! MODE_PROTECTEDVM ){
-            if( pM->reg.cpl > SEGACCESS_DPL(pM->reg.descc_es.access) ){ updateSegReg(pM, SEGREG_NUM_ES, 0); }
-            if( pM->reg.cpl > SEGACCESS_DPL(pM->reg.descc_ds.access) ){ updateSegReg(pM, SEGREG_NUM_DS, 0); }
-            if( pM->reg.cpl > SEGACCESS_DPL(pM->reg.descc_fs.access) ){ updateSegReg(pM, SEGREG_NUM_FS, 0); }
-            if( pM->reg.cpl > SEGACCESS_DPL(pM->reg.descc_gs.access) ){ updateSegReg(pM, SEGREG_NUM_GS, 0); }
-        }
+        if( pM->reg.cpl > SEGACCESS_DPL(pM->reg.descc_es.access) ){ updateSegReg(pM, SEGREG_NUM_ES, 0); }
+        if( pM->reg.cpl > SEGACCESS_DPL(pM->reg.descc_ds.access) ){ updateSegReg(pM, SEGREG_NUM_DS, 0); }
+        if( pM->reg.cpl > SEGACCESS_DPL(pM->reg.descc_fs.access) ){ updateSegReg(pM, SEGREG_NUM_FS, 0); }
+        if( pM->reg.cpl > SEGACCESS_DPL(pM->reg.descc_gs.access) ){ updateSegReg(pM, SEGREG_NUM_GS, 0); }
     }
 
     return EX_RESULT_SUCCESS;
