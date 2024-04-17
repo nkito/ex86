@@ -154,6 +154,7 @@ void mainloop32(struct stMachineState *pM){
 
 void mainloop32_inner(struct stMachineState *pM){
 	int result;
+	uint16_t saved_ss;
 	uint32_t prev_eflags;
 	uint32_t pointer = REG_CS_BASE + REG_EIP;
 	int (*exFunc)(struct stMachineState *pM, uint32_t pointer);
@@ -201,6 +202,7 @@ void mainloop32_inner(struct stMachineState *pM){
 		PREFIX_REPZ = PREF_REP_UNSPECIFIED;
 		PREFIX_AD32 = CODESEG_D_BIT && !(pM->reg.eflags & (1<<EFLAGS_BIT_VM)) ? 1 : 0;
 		PREFIX_OP32 = CODESEG_D_BIT && !(pM->reg.eflags & (1<<EFLAGS_BIT_VM)) ? 1 : 0;
+		saved_ss = REG_SS;
 
 		pointer = REG_CS_BASE + REG_EIP;
 		pM->reg.current_cs  = REG_CS;    // To save the instruction pointer including prefix
@@ -273,7 +275,13 @@ void mainloop32_inner(struct stMachineState *pM){
 			goto mainloop32_exit;
 		}
 
-		if( prev_eflags & REG_FLAGS & (1<<FLAGS_BIT_TF) ){
+		if( saved_ss != REG_SS && (exFunc == exMov || exFunc == exPOP) ){
+			// do not process interrupts after "mov ss" or "pop ss" instruction
+			// to prevent inconsistency of ss and (e)sp in following code
+			//
+			// mov ss, ...
+			// mov sp, ...
+		}else if( prev_eflags & REG_FLAGS & (1<<FLAGS_BIT_TF) ){
 			enterINT(pM, INTNUM_SINGLE_STEP, REG_CS, REG_EIP);
 
 

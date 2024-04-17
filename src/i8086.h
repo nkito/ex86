@@ -200,8 +200,7 @@ enum eOpType {
 	OpTypeReg,
 	OpTypeSegReg,
 	OpTypeMemWithSeg,
-	OpTypeMemWithSeg_Reg,
-	OpTypeMemDirect
+	OpTypeMemWithSeg_Reg
 };
 
 struct stOpl{

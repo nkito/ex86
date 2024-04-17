@@ -285,8 +285,6 @@ uint32_t readOplEA(struct stMachineState *pM, struct stOpl *pOp, uint8_t withSeg
 			}
 		}
 		addr += pOp->addr;
-	}else if(pOp->type == OpTypeMemDirect){
-        addr = pOp->addr;
 	}
 	return addr;
 }
@@ -442,16 +440,6 @@ uint32_t readOpl(struct stMachineState *pM, struct stOpl *pOp){
 		}else{
 			op1 = readDataMemByte(pM, addr);
 		}
-	}else if(pOp->type == OpTypeMemDirect){
-		if(pOp->width){
-			if( PREFIX_OP32 ){
-				op1 = readDataMemDoubleWord(pM, pOp->addr);
-			}else{
-				op1 = readDataMemWord(pM, pOp->addr);
-			}
-		}else{
-			op1 = readDataMemByte(pM, pOp->addr);
-		}
 	}
 	return op1;
 }
@@ -575,17 +563,6 @@ void writeOpl(struct stMachineState *pM, struct stOpl *pOp, uint32_t val){
 			}
 		}else{
 			writeDataMemByte(pM, addr, val);
-		}
-
-	}else if(pOp->type == OpTypeMemDirect){
-		if(pOp->width){
-			if( PREFIX_OP32 ){
-				writeDataMemDoubleWord(pM, pOp->addr, val);
-			}else{
-				writeDataMemWord(pM, pOp->addr, val);
-			}
-		}else{
-			writeDataMemByte(pM, pOp->addr, val);
 		}
 	}
 }

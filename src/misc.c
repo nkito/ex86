@@ -43,8 +43,6 @@ static void log_printOpl16(int loglevel, struct stOpl *pOp){
 			default: str = "--"; break;
 		}
         logfile_printf_without_header(loglevel, str);
-    }else if( pOp->type == OpTypeMemDirect ){
-        logfile_printf_without_header(loglevel, "[%x]", pOp->addr);
     }else if( pOp->type == OpTypeMemWithSeg ){
 		switch((pOp->reg)&3){
 			case 0:  str = "ES"; break;
@@ -83,8 +81,6 @@ static void log_printOpl32(int loglevel, struct stOpl *pOp){
 			default: str = "--"; break;
 		}
         logfile_printf_without_header(loglevel, str);
-    }else if( pOp->type == OpTypeMemDirect ){
-        logfile_printf_without_header(loglevel, "[%x]", pOp->addr);
     }else if( pOp->type == OpTypeMemWithSeg ){
 		switch((pOp->reg)&7){
 			case 0:  str = "ES"; break;

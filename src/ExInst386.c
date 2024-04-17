@@ -408,8 +408,14 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
         if( funct & 2 ){
             segval = readOpl(pM, &op);
         }else{
-            if( funct == 0 ) writeOpl( pM, &op, pM->reg.ldtr );
-            if( funct == 1 ) writeOpl( pM, &op, pM->reg.tr   );
+            uint16_t result = ((funct == 0) ? pM->reg.ldtr : pM->reg.tr);
+
+            if( op.type == OpTypeReg ){
+                PREFIX_OP32 = 1;
+                writeOpl( pM, &op, (uint32_t)result );
+            }else{
+                writeOpl( pM, &op, result );
+            }
         }
         //------------------------------
         PREFIX_OP32 = save_op32;

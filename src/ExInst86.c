@@ -621,9 +621,6 @@ int exLDSLES(struct stMachineState *pM, uint32_t pointer){
     uint16_t d2 = readOpl(pM,  &op1); // 16-bit access
     PREFIX_OP32 = data32;
 
-    // common for LDS(0xc5), LES(0xc4), LSS(0x0f, 0xb2), LFS(0x0f, 0xb4), LGS(0x0f, 0xb5)
-    writeOpl( pM,  &op2, d0 );
-
     if(inst0 == 0xc5) updateSegReg(pM, SEGREG_NUM_DS, d2); // LDS
     if(inst0 == 0xc4) updateSegReg(pM, SEGREG_NUM_ES, d2); // LES
 
@@ -633,6 +630,8 @@ int exLDSLES(struct stMachineState *pM, uint32_t pointer){
         if(inst1 == 0xb5) updateSegReg(pM, SEGREG_NUM_GS, d2); // LGS
     }
 
+    // common for LDS(0xc5), LES(0xc4), LSS(0x0f, 0xb2), LFS(0x0f, 0xb4), LGS(0x0f, 0xb5)
+    writeOpl( pM,  &op2, d0 );
 
     UPDATE_IP(size);
 
@@ -1005,8 +1004,10 @@ int exMUL32(struct stMachineState *pM, uint32_t pointer){
             rsrcs = ((rsrc & 0x80000000ULL) ? (rsrc|0xffffffff00000000ULL) : rsrc);
             lsrcs = ((lsrc & 0x80000000ULL) ? (lsrc|0xffffffff00000000ULL) : lsrc);
         }else{
-            rsrcs = ((rsrc & 0x80)   ? (rsrc|0xffffff00) : rsrc);
-            lsrcs = ((lsrc & 0x80)   ? (lsrc|0xffffff00) : lsrc);
+            rsrcs = ((rsrc & 0x80ULL)       ? (rsrc|0xffffffffffffff00ULL) : rsrc);
+            lsrcs = ((lsrc & 0x80ULL)       ? (lsrc|0xffffffffffffff00ULL) : lsrc);
+            //rsrcs = (int64_t)((int8_t)rsrc);
+            //lsrcs = (int64_t)((int8_t)lsrc);
         }
 
         int64_t  muls = ((int64_t)rsrcs) * ((int64_t)lsrcs);
