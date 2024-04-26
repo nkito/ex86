@@ -33,9 +33,8 @@ uint32_t readFLAGS(struct stMachineState *pM){
 
 
 void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip, int enable_error_code, uint32_t error_code){
-    uint32_t save_data32, save_addr32;
-    save_data32 = PREFIX_OP32;
-    save_addr32 = PREFIX_AD32;
+    uint32_t save_data32 = PREFIX_OP32;
+    uint32_t save_addr32 = PREFIX_AD32;
     uint32_t saved_eflag;
 
     if(int_num == 0x80){
@@ -175,10 +174,10 @@ int exESC(struct stMachineState *pM, uint32_t pointer){
     }
 
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
-    uint16_t bit1 = ((inst0>>1) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
+    uint8_t bit1 = ((inst0>>1) & 1);
 
     if(inst0 == 0x9b){
         inst0 = inst1;
@@ -231,7 +230,7 @@ fpuop_ax:
 }
 
 int exWAIT(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if( inst0 != 0x9b ) return EX_RESULT_UNKNOWN;
 
@@ -251,7 +250,7 @@ int exWAIT(struct stMachineState *pM, uint32_t pointer){
 
 
 int exHLT(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if( inst0 != 0xf4 ) return EX_RESULT_UNKNOWN;
 
@@ -282,11 +281,11 @@ int exMov(struct stMachineState *pM, uint32_t pointer){
     struct stOpl *pOpSrc  = NULL;
     struct stOpl opAcc, op1, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
-    uint16_t bit1 = ((inst0>>1) & 1);
-    uint16_t bit3 = ((inst0>>3) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
+    uint8_t bit1 = ((inst0>>1) & 1);
+    uint8_t bit3 = ((inst0>>3) & 1);
 
     opAcc.type  = OpTypeReg;
     opAcc.reg   = REG_NUM_AX;
@@ -369,8 +368,8 @@ int exPUSH(struct stMachineState *pM, uint32_t pointer){
 
     uint32_t val;
     uint16_t size = 0;
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     /* -----------------------------------------------------------------
     NOTE THAT:
@@ -408,8 +407,8 @@ int exPOP(struct stMachineState *pM, uint32_t pointer){
     uint32_t val;
 
     uint16_t size = 0;
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     /* -----------------------------------------------------------------
     NOTE THAT:
@@ -462,8 +461,8 @@ int exXCHG(struct stMachineState *pM, uint32_t pointer){
 
     uint32_t val;
     uint16_t size = 0;
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t bit0 = ((inst0>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t bit0 = ((inst0>>0) & 1);
 
     if( (inst0&0xfe) == 0x86 ){
         size = decode_mod_rm(pM, pointer+1, INST_W_BIT, &op1);
@@ -496,9 +495,9 @@ int exXCHG(struct stMachineState *pM, uint32_t pointer){
 int exINOUT(struct stMachineState *pM, uint32_t pointer){
     uint32_t val;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t bit0 = ((inst0>>0) & 1);
-    uint16_t bit1 = ((inst0>>1) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t bit0 = ((inst0>>0) & 1);
+    uint8_t bit1 = ((inst0>>1) & 1);
 
     if( (inst0&0xfc) == 0xe4 ){
         decode_imm(pM, pointer+1, INST_W_BYTEACC, &val, INST_S_NOSIGNEX);
@@ -543,7 +542,7 @@ int exXLAT(struct stMachineState *pM, uint32_t pointer){
     struct stOpl op;
     uint16_t val;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if(inst0 != 0xd7 ) return EX_RESULT_UNKNOWN;
 
@@ -568,7 +567,7 @@ int exLEA(struct stMachineState *pM, uint32_t pointer){
     uint16_t size;
     struct stOpl op1, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if(inst0 != 0x8d ) return EX_RESULT_UNKNOWN;
 
@@ -596,9 +595,9 @@ int exLDSLES(struct stMachineState *pM, uint32_t pointer){
     uint32_t data32 = PREFIX_OP32;
     struct stOpl op1, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t inst2 = fetchCodeDataByte(pM, pointer+2);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t inst2 = fetchCodeDataByte(pM, pointer+2);
 
     if(inst0 == 0xc5 || inst0 == 0xc4){
         if(inst1 == 0xc0) return EX_RESULT_UNKNOWN;
@@ -652,7 +651,7 @@ int exLDSLES(struct stMachineState *pM, uint32_t pointer){
 }
 
 int exAHF(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if( inst0 == 0x9f ){
         if(DEBUG) EXI_LOG_PRINTF("LAHF\n"); 
@@ -673,7 +672,7 @@ int exAHF(struct stMachineState *pM, uint32_t pointer){
 
 
 int exPUSHFPOPF(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
     uint32_t flag;
     uint32_t mask;
 
@@ -761,10 +760,10 @@ int exALU2OP(struct stMachineState *pM, uint32_t pointer){
     struct stOpl *pOpSrc  = NULL;
     struct stOpl opAcc, op1, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
-    uint16_t bit1 = ((inst0>>1) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
+    uint8_t bit1 = ((inst0>>1) & 1);
 
     opAcc.type  = OpTypeReg;
     opAcc.reg   = REG_NUM_AX;
@@ -860,9 +859,9 @@ int exINCDEC(struct stMachineState *pM, uint32_t pointer){
     uint32_t size, val;
     struct stOpl op;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
 
     int isWordAcc = INST_W_BIT;
 
@@ -912,9 +911,9 @@ int exNEGNOT(struct stMachineState *pM, uint32_t pointer){
     uint32_t size, val, origval;
     struct stOpl op;
 
-    uint16_t inst0 = fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0];
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
 
     uint8_t funct = (inst1 & 0x38);
     // funct 
@@ -954,9 +953,9 @@ int exMUL32(struct stMachineState *pM, uint32_t pointer){
     uint64_t lsrc, rsrc;
     struct stOpl op;
 
-    uint16_t inst0 = fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0];
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
 
     uint8_t funct = (inst1 & 0x38);
     // funct 
@@ -1044,9 +1043,9 @@ int exMUL(struct stMachineState *pM, uint32_t pointer){
 
     if( PREFIX_OP32 ) return exMUL32(pM, pointer);
 
-    uint16_t inst0 = fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0];
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
 
     uint8_t funct = (inst1 & 0x38);
     // funct 
@@ -1133,9 +1132,9 @@ int exDIV32(struct stMachineState *pM, uint32_t pointer){
     uint64_t numr, divr;
     struct stOpl op;
 
-    uint16_t inst0 = fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0];
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
 
     uint8_t funct = (inst1 & 0x38);
     // funct 
@@ -1223,9 +1222,9 @@ int exDIV(struct stMachineState *pM, uint32_t pointer){
 
     if( PREFIX_OP32 ) return exDIV32(pM, pointer);
 
-    uint16_t inst0 = fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0];
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
 
     uint8_t funct = (inst1 & 0x38);
     // funct 
@@ -1317,7 +1316,7 @@ int exDIV(struct stMachineState *pM, uint32_t pointer){
 }
 
 int exDASAAS(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = fetchCodeDataByte(pM, pointer);
     uint8_t old_al, old_cf, al;
 
     if( inst0 != 0x2F && inst0 != 0x3F ) return EX_RESULT_UNKNOWN;
@@ -1376,7 +1375,7 @@ int exDASAAS(struct stMachineState *pM, uint32_t pointer){
 
 int exAADAAM(struct stMachineState *pM, uint32_t pointer){
     uint32_t val;
-    uint16_t inst0 = fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = fetchCodeDataByte(pM, pointer);
 
     if( inst0 != 0xD5 && inst0 != 0xd4 ) return EX_RESULT_UNKNOWN;
 
@@ -1423,7 +1422,7 @@ int exAADAAM(struct stMachineState *pM, uint32_t pointer){
 
 
 int exDAA(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = fetchCodeDataByte(pM, pointer);
 
     if( inst0 != 0x27 ) return EX_RESULT_UNKNOWN;
 
@@ -1458,7 +1457,7 @@ int exDAA(struct stMachineState *pM, uint32_t pointer){
 
 int exConvSiz(struct stMachineState *pM, uint32_t pointer){
     uint32_t a;
-    uint16_t inst0 = fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = fetchCodeDataByte(pM, pointer);
 
     if( inst0 == 0x98 ){
         if(DEBUG) EXI_LOG_PRINTF("CBW\n"); 
@@ -1504,10 +1503,10 @@ int exShift(struct stMachineState *pM, uint32_t pointer){
     const char *InstStr[8] = 
         {"ROL", "ROR",  "RCL", "RCR", "SHL", "SHR", NULL, "SAR"};
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
-    uint16_t bit1 = ((inst0>>1) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
+    uint8_t bit1 = ((inst0>>1) & 1);
 
     uint8_t funct = (inst1 & 0x38);
 
@@ -1743,9 +1742,9 @@ int exTEST(struct stMachineState *pM, uint32_t pointer){
     struct stOpl *pOpSrc  = NULL;
     struct stOpl opAcc, op1, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst0>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst0>>0) & 1);
 
     opAcc.type  = OpTypeReg;
     opAcc.reg   = REG_NUM_AX;
@@ -1791,7 +1790,7 @@ int exTEST(struct stMachineState *pM, uint32_t pointer){
 
 
 int exStringInst(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
     struct stOpl opax, op1, op2;
 
     const char *InstStr[16] = 
@@ -1806,7 +1805,7 @@ int exStringInst(struct stMachineState *pM, uint32_t pointer){
         EXI_LOG_PRINTF(InstStr[inst0&0x0f]); EXI_LOG_PRINTF("\n");
     }
 
-    uint16_t bit0 = ((inst0>>0) & 1);
+    uint8_t bit0 = ((inst0>>0) & 1);
     uint16_t delta  = INST_W_BIT ? (PREFIX_OP32 ? 4 : 2) : 1;
     int32_t  ddelta = (REG_FLAGS & (1<<FLAGS_BIT_DF)) ? -delta : delta;
 
@@ -1884,8 +1883,8 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
     uint32_t val, val2, size;
     struct stOpl op;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; //fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; //fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     uint32_t data32 = PREFIX_OP32;
 
@@ -2058,8 +2057,8 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
     uint32_t val, val2, size;
     struct stOpl op;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     if( inst0 == 0xe9 ){
         // Direct within segment
@@ -2123,7 +2122,7 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
 int exRET(struct stMachineState *pM, uint32_t pointer){
     uint32_t val, newseg;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if( inst0 == 0xc3 || inst0 == 0xcb ){
         if( PREFIX_OP32 ){ POP_FROM_STACK( REG_EIP );                  }
@@ -2185,7 +2184,7 @@ int exRET(struct stMachineState *pM, uint32_t pointer){
 }
 
 int exCondJump(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
     uint16_t cond = 0;
     uint16_t tmpval1, tmpval2, tmpval3;
     uint32_t val;
@@ -2194,13 +2193,13 @@ int exCondJump(struct stMachineState *pM, uint32_t pointer){
     if( (inst0 & 0xf0) == 0x70 ){
         decode_imm(pM, pointer+1, INST_W_WORDACC, &val, INST_S_SIGNEX);
         UPDATE_IP(2);
-        cond = inst0&0x0f;
+        cond = (inst0 & 0x0f);
     }else{
-        uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
+        uint16_t inst1 = pM->reg.fetchCache[1];
         if( inst0 == 0x0f && (inst1 & 0xf0) == 0x80 && pM->emu.emu_cpu >= EMU_CPU_80386 ){
             size = decode_imm(pM, pointer+2, INST_W_WORDACC, &val, INST_S_NOSIGNEX);
             UPDATE_IP(2 + size);
-            cond = inst1&0x0f;
+            cond = (inst1 & 0x0f);
         }else{
             return EX_RESULT_UNKNOWN;
         }
@@ -2265,7 +2264,7 @@ int exCondJump(struct stMachineState *pM, uint32_t pointer){
 
 
 int exLOOP(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
     uint32_t val;
 
     if( inst0 != 0xe0 && inst0 != 0xe1 && inst0 != 0xe2 ){
@@ -2303,7 +2302,7 @@ int exLOOP(struct stMachineState *pM, uint32_t pointer){
 
 
 int exJCXZ(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
     uint32_t val;
 
     if( inst0 != 0xe3 ){
@@ -2324,8 +2323,8 @@ int exJCXZ(struct stMachineState *pM, uint32_t pointer){
 }
 
 int exINT(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t bit0  = ((inst0>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t bit0  = ((inst0>>0) & 1);
     uint32_t val;
 
     if( (inst0&0xfe)  != 0xcc ){
@@ -2347,7 +2346,7 @@ int exINT(struct stMachineState *pM, uint32_t pointer){
 
 int exINTO(struct stMachineState *pM, uint32_t pointer){
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if( inst0 != 0xce ){
         return EX_RESULT_UNKNOWN;
@@ -2464,7 +2463,7 @@ int exIRET_NT(struct stMachineState *pM, uint32_t pointer){
 }
 
 int exIRET(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
     uint32_t val1, val2, val3, val4, val5;
     int goOuter = 0;
 
@@ -2579,7 +2578,7 @@ int exIRET(struct stMachineState *pM, uint32_t pointer){
 
 int exSetClearFlag(struct stMachineState *pM, uint32_t pointer){
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     const char *InstStr[16] = 
         {NULL,  NULL,  NULL,  NULL,  NULL, "CMC",  NULL, NULL,

@@ -18,7 +18,7 @@ int exUD(struct stMachineState *pM, uint32_t pointer){
     struct stOpl op;
 
     uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint8_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     // 0f ff /r : UD0 r32, r/m32
     // 0f b9 /r : UD1 r32, r/m32
@@ -45,10 +45,10 @@ int exShiftDouble(struct stMachineState *pM, uint32_t pointer){
     uint32_t size, val1, val2, shamt;
     struct stOpl op1, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst1>>0) & 1);
-    uint16_t bit3 = ((inst1>>3) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst1>>0) & 1);
+    uint8_t bit3 = ((inst1>>3) & 1);
 
     int nbits  = (PREFIX_OP32 ? 32 : 16);
 
@@ -151,9 +151,9 @@ int exMOVSZX(struct stMachineState *pM, uint32_t pointer){
 
     struct stOpl op1, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
-    uint16_t bit0 = ((inst1>>0) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
+    uint8_t bit0 = ((inst1>>0) & 1);
 
     // 0F B6, 0F B7 : MOVZX
     // 0F BE, 0F BF : MOVSX
@@ -202,7 +202,7 @@ int exMOVSZX(struct stMachineState *pM, uint32_t pointer){
 
 int exCLTS(struct stMachineState *pM, uint32_t pointer){
     uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint8_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     if( inst0 != 0x0f || inst1 != 0x06 ){
         return EX_RESULT_UNKNOWN;
@@ -232,7 +232,7 @@ int exLARLSL(struct stMachineState *pM, uint32_t pointer){
     struct stRawSegmentDesc RS;
 
     uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint8_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     if( inst0 != 0x0f || (inst1 != 0x02 && inst1 != 0x03) ){
         return EX_RESULT_UNKNOWN;
@@ -305,7 +305,7 @@ int exMOVCRDR(struct stMachineState *pM, uint32_t pointer){
     struct stOpl op;
 
     uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint8_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst1 = pM->reg.fetchCache[1];
     uint8_t inst2 = fetchCodeDataByte(pM, pointer+2);
 
     uint8_t idx;
@@ -374,7 +374,7 @@ int exMOVCRDR(struct stMachineState *pM, uint32_t pointer){
 
 int exLSDesc(struct stMachineState *pM, uint32_t pointer){
     uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint8_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst1 = pM->reg.fetchCache[1];
     uint8_t inst2 = fetchCodeDataByte(pM, pointer+2);
     uint8_t funct = ((inst2>>3)&0x7);
     uint16_t size = 2;
@@ -617,8 +617,8 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
 
 
 int exSETcc(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer  );
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer  );
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     uint16_t cond = 0;
     uint16_t tmpval1, tmpval2, tmpval3;
@@ -703,7 +703,7 @@ int exBT(struct stMachineState *pM, uint32_t pointer){
     uint32_t targetword, targetbit;
 
     uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer  );
-    uint8_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst1 = pM->reg.fetchCache[1];
     uint8_t inst2 = fetchCodeDataByte(pM, pointer+2);
     uint8_t funct = 0;
 
@@ -775,7 +775,7 @@ int exBitScan(struct stMachineState *pM, uint32_t pointer){
     uint32_t d0, i=0, b;
 
     uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer  );
-    uint8_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     if(inst0 != 0x0f                 ) return EX_RESULT_UNKNOWN;
     if(inst1 != 0xbc && inst1 != 0xbd) return EX_RESULT_UNKNOWN; // 0xbc: BSF, 0xbd: BSR
@@ -818,8 +818,8 @@ int exIMUL2Op(struct stMachineState *pM, uint32_t pointer){
     uint64_t rsrcs, lsrcs;
     struct stOpl opl, opr;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t inst1 = fetchCodeDataByte(pM, pointer+1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst1 = pM->reg.fetchCache[1];
 
     if( inst0 != 0x0f || inst1 != 0xaf ){
         return EX_RESULT_UNKNOWN;
