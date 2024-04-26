@@ -282,18 +282,18 @@ void mainloop32_inner(struct stMachineState *pM){
 			// mov ss, ...
 			// mov sp, ...
 		}else if( prev_eflags & REG_FLAGS & (1<<FLAGS_BIT_TF) ){
-			enterINT(pM, INTNUM_SINGLE_STEP, REG_CS, REG_EIP);
+			enterINT(pM, INTNUM_SINGLE_STEP, REG_CS, REG_EIP, 0);
 
 
 		}else if( REG_FLAGS & (1<<FLAGS_BIT_IF) ){
 			if( pM->mem.ioTimer.counter[0] != 0 && 0 == ((pM->mem.ioPICmain.ocw1) & 1) && tflag ){
 				tflag = 0;
 				if( ! DEBUG ){
-					enterINT(pM, (pM->mem.ioPICmain.icw2)&0xf8, REG_CS, REG_EIP);
+					enterINT(pM, (pM->mem.ioPICmain.icw2)&0xf8, REG_CS, REG_EIP, 0);
 				}
 			}else if( pM->mem.ioFDC.irq && 0 == ((pM->mem.ioPICmain.ocw1) & (1<<6)) ){
 				logfile_printf(LOGLEVEL_EMU_INFO, "FDC interrupt \n");
-				enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+6, REG_CS, REG_EIP);
+				enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+6, REG_CS, REG_EIP, 0);
 				pM->mem.ioFDC.irq = 0;
 
 			}else if( pM->mem.ioUART1.int_enable && 0 == ((pM->mem.ioPICmain.ocw1) & (1<<3)) ){
@@ -302,7 +302,7 @@ void mainloop32_inner(struct stMachineState *pM){
 					// cannot be stop in interrupt-enabled conditions.
 					// Thus, the former condition is introduced.
 					logfile_printf(LOGLEVEL_EMU_INFO, "UART interrupt (tx ready) \n");
-					enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP);
+					enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP, 0);
 
 				}else if( (pM->mem.ioUART1.int_enable & 0x1) ){
 					if( ++(pM->mem.ioUART1.chkCntForInt) > 100 ){
@@ -310,7 +310,7 @@ void mainloop32_inner(struct stMachineState *pM){
 					}
 					if( pM->mem.ioUART1.buffered ){
 						logfile_printf(LOGLEVEL_EMU_INFO, "UART interrupt (rx ready) \n");
-						enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP);
+						enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP, 0);
 					}
 				}
 			}

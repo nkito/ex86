@@ -4,7 +4,7 @@
 //void enterFAULT(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip, );
 
 void enterINTwithECODE(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip, uint32_t error_code);
-void enterINT         (struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip);
+void enterINT         (struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip, int isSoftInt);
 
 int exPrefixDummy(struct stMachineState *pM, uint32_t pointer);
 

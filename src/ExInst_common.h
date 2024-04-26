@@ -75,8 +75,9 @@
 // 
 //------------------------------------------------------------
 
-#define ECODE_SEGMENT_GDT_LDT(seg)    ((seg) & (~0x3))
-#define ECODE_SEGMENT_IDT(seg, ext)  (((seg) & (~0x7)) | 0x2 | (ext ? 0x1 : 0))
+#define ECODE_SEGMENT_GDT_LDT_EXT(seg)   (((seg) & (~0x3)) | 1)
+#define ECODE_SEGMENT_GDT_LDT(seg)       ((seg) & (~0x3))
+#define ECODE_SEGMENT_IDT(int_num, ext)  (((int_num) << 3) | 0x2 | (ext ? 0x1 : 0))
 
 #define ENTER_UD  do{                           \
     pM->reg.error_code  = 0;                    \

@@ -334,11 +334,11 @@ void mainloop16(struct stMachineState *pM){
 		}
 
 		if( prev_flags & REG_FLAGS & (1 << FLAGS_BIT_TF) ){
-			enterINT(pM, 1, REG_CS, REG_IP);
+			enterINT(pM, 1, REG_CS, REG_IP, 0);
 		}else if( (nExecInsts & 0x0f) == 0 && pM->mem.ioTimer.counter[0] != 0 && ((REG_FLAGS & (1 << FLAGS_BIT_IF)) != 0) ){
 			if( tflag ){
 				tflag = 0;
-				enterINT(pM, 0x08, REG_CS, REG_IP);
+				enterINT(pM, 0x08, REG_CS, REG_IP, 0);
 
 				// resetTimerCounter(0);
 			}

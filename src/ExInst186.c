@@ -204,7 +204,7 @@ int exBOUND(struct stMachineState *pM, uint32_t pointer){
 
     if( val < lower || val > upper+((PREFIX_OP32) ? 4 : 2) ){
         // TODO: check the address (this address is correct for 486, but correctness for 80186 is unclear)
-        enterINT(pM, INTNUM_BOUNDS, pM->reg.current_cs, pM->reg.current_eip);
+        enterINT(pM, INTNUM_BOUNDS, pM->reg.current_cs, pM->reg.current_eip, 0);
     }
     return EX_RESULT_SUCCESS;
 }

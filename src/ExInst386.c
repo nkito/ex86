@@ -239,7 +239,7 @@ int exLARLSL(struct stMachineState *pM, uint32_t pointer){
     }
 
     if( (!MODE_PROTECTED) || MODE_PROTECTEDVM ){
-        enterINT(pM, INTNUM_UDOPCODE, REG_CS, REG_IP);
+        enterINT(pM, INTNUM_UDOPCODE, REG_CS, REG_IP, 0);
     }
 
     size = decode_mod_rm(pM, pointer+2, INST_W_WORDACC, &op1); // source

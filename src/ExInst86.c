@@ -32,7 +32,7 @@ uint32_t readFLAGS(struct stMachineState *pM){
 }
 
 
-void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip, int enable_error_code, uint32_t error_code){
+void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip, int enable_error_code, uint32_t error_code, int isSoftInt){
     uint32_t save_data32 = PREFIX_OP32;
     uint32_t save_addr32 = PREFIX_AD32;
     uint32_t saved_eflag;
@@ -49,6 +49,14 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
         logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is not present (CS:EIP %x:%x)\n", int_num, pM->reg.current_cs, pM->reg.current_eip);
     }
 
+    uint8_t CPL = pM->reg.cpl;
+    //uint8_t RPL = (GD.selector&3);
+    uint8_t DPL = SEGACCESS_DPL(GD.access);
+
+    if( isSoftInt && (DPL < CPL) ){
+        ENTER_GP( ECODE_SEGMENT_IDT(int_num, 0) );
+    }
+
     // op size is determined by descriptors for interrupt
     switch( GD.access & 0xf ){
         case SYSDESC_TYPE_INTGATE32:
@@ -63,16 +71,40 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
             saved_eflag = readFLAGS(pM);
             REG_EFLAGS &= ~((1<<FLAGS_BIT_TF)|(1<<FLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
             break;
+        case SYSDESC_TYPE_TASKGATE:
+            // TODO: Task gate processing
+            logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is type 0x%x  (CS:EIP %x:%x)\n", int_num, (GD.access & 0x0f), pM->reg.current_cs, pM->reg.current_eip);
+            printf("Task gate is not implemented\n");
         default:
+        /*
             logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is type 0x%x  (CS:EIP %x:%x)\n", int_num, (GD.access & 0x0f), pM->reg.current_cs, pM->reg.current_eip);
             PREFIX_OP32 = 1;
             PREFIX_AD32 = 1;
             saved_eflag = readFLAGS(pM);
             REG_EFLAGS &= ~((1<<FLAGS_BIT_IF)|(1<<FLAGS_BIT_TF)|(1<<FLAGS_BIT_NT)|(1<<EFLAGS_BIT_RF)|(1<<EFLAGS_BIT_VM));
+        */
+            ENTER_NP( ECODE_SEGMENT_IDT(int_num, 1) );
             break;
     }
 
-    if( pM->reg.cpl != (GD.selector&3) ){
+    struct stRawSegmentDesc RS;
+    if( GD.selector < 4 ){
+        // if the new code segment is pointed by a null selector
+        ENTER_GP( 1 );
+    }
+    loadRawSegmentDesc(pM, GD.selector, &RS);
+
+    uint8_t DPLC= SEGACCESS_DPL(RS.access);
+
+    if( (!SEGACCESS_IS_CSEG(RS.access)) ||  (DPLC > CPL) ){
+        ENTER_GP( ECODE_SEGMENT_GDT_LDT_EXT(GD.selector) );
+    }
+
+    if( 0 == (RS.access & SEGACCESS_PRESENT) ){
+        ENTER_NP( ECODE_SEGMENT_GDT_LDT_EXT(GD.selector) );
+    }
+
+    if( (!SEGACCESS_CSEG_IS_CONFORMING(RS.access)) && DPLC < CPL ){
         uint32_t new_esp, old_esp;
         uint16_t new_ss,  old_ss;
         uint32_t TSSbase  = pM->reg.descc_tr.base;
@@ -82,7 +114,9 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
             logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x , PL %d -> %d  (CS:EIP %x:%x)\n", int_num, pM->reg.cpl, (GD.selector&3), pM->reg.current_cs, pM->reg.current_eip);
         }
 
-        pM->reg.cpl = (GD.selector&3);
+        pM->reg.cpl = DPLC; // (GD.selector&3);
+        GD.selector &= (~3);
+        GD.selector |= DPLC;
         uint32_t TSS_SP_base = TSSbase + 4 + (pM->reg.cpl * 8);
 
         new_esp  = readDataMemByteAsSV(pM, TSS_SP_base);
@@ -113,6 +147,8 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
 
         PUSH_TO_STACK( old_ss );
         PUSH_TO_STACK( old_esp  );
+    }else if( (!SEGACCESS_CSEG_IS_CONFORMING(RS.access)) && CPL != DPLC ){
+        ENTER_GP( ECODE_SEGMENT_GDT_LDT_EXT( GD.selector ) );
     }
 
     PUSH_TO_STACK( saved_eflag );
@@ -130,12 +166,12 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
 }
 
 void enterINTwithECODE(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip, uint32_t error_code){
-    enterINT32(pM, int_num, cs, eip, /* enableErroCode?*/ 1, error_code);
+    enterINT32(pM, int_num, cs, eip, /* enableErroCode?*/ 1, error_code, 0);
 }
 
-void enterINT(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip){
+void enterINT(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip, int isSoftInt){
     if( MODE_PROTECTED ){
-        enterINT32(pM, int_num, cs, eip, 0, 0);
+        enterINT32(pM, int_num, cs, eip, 0, 0, isSoftInt);
         return;
     }
 
@@ -169,7 +205,7 @@ int exESC(struct stMachineState *pM, uint32_t pointer){
     if( (pM->reg.cr[0] & (1<<CR0_BIT_EM)) || (pM->reg.cr[0] & (1<<CR0_BIT_TS)) ){
         logfile_printf_without_header(LOGCAT_CPU_EXE | LOGLV_ERROR, "ESC and trap7 (%x:%x %x)\n", pM->reg.current_cs, pM->reg.current_eip, pointer);
 
-        enterINT(pM, INTNUM_ESCOPCODE, pM->reg.current_cs, pM->reg.current_eip);
+        enterINT(pM, INTNUM_ESCOPCODE, pM->reg.current_cs, pM->reg.current_eip, 0);
         return EX_RESULT_SUCCESS;
     }
 
@@ -241,7 +277,7 @@ int exWAIT(struct stMachineState *pM, uint32_t pointer){
     UPDATE_IP(1);
 
     if( (pM->reg.cr[0] & (1<<CR0_BIT_TS)) && (pM->reg.cr[0] & (1<<CR0_BIT_MP)) ){
-        enterINT(pM, INTNUM_ESCOPCODE, pM->reg.current_cs, pM->reg.current_eip);
+        enterINT(pM, INTNUM_ESCOPCODE, pM->reg.current_cs, pM->reg.current_eip, 0);
         return EX_RESULT_SUCCESS;
     }
 
@@ -1181,7 +1217,7 @@ int exDIV32(struct stMachineState *pM, uint32_t pointer){
             (INST_W_BIT == 0 && quou > 0xff) ){
             // overflow
             logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : divide 0 (3) %lx/%lx (CS:EIP %x:%x)\n", numr, divr, pM->reg.current_cs, pM->reg.current_eip);
-            enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
+            enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip, 0);
         }else{
             if( INST_W_BIT ){
                 REG_EAX = quou;
@@ -1200,7 +1236,7 @@ int exDIV32(struct stMachineState *pM, uint32_t pointer){
             (INST_W_BIT == 0 && quos > 0 && quos > 0x7f) ||
             (INST_W_BIT == 0 && quos < 0 && quos <-0x80) ){
             // overflow
-            enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
+            enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip, 0);
         }else{
             if( INST_W_BIT ){
                 REG_EAX = quos;
@@ -1272,9 +1308,9 @@ int exDIV(struct stMachineState *pM, uint32_t pointer){
             if( pM->emu.emu_cpu == EMU_CPU_8086 ){
                 // i8086 pushes the address of the next instruction.
                 // See: https://stackoverflow.com/questions/71070990/x86-division-exception-return-address
-                enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP);
+                enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP, 0);
             }else{
-                enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
+                enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip, 0);
             }
         }else{
             if( INST_W_BIT ){
@@ -1297,9 +1333,9 @@ int exDIV(struct stMachineState *pM, uint32_t pointer){
             if( pM->emu.emu_cpu == EMU_CPU_8086 ){
                 // i8086 pushes the address of the next instruction.
                 // See: https://stackoverflow.com/questions/71070990/x86-division-exception-return-address
-                enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP);
+                enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP, 0);
             }else{
-                enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip);
+                enterINT(pM,  INTNUM_DIVIDE_ERROR, pM->reg.current_cs, pM->reg.current_eip, 0);
             }
         }else{
             if( INST_W_BIT ){
@@ -2340,7 +2376,7 @@ int exINT(struct stMachineState *pM, uint32_t pointer){
     }
     if(DEBUG) EXI_LOG_PRINTF("INT %x\n", val);
 
-    enterINT(pM, val, REG_CS, PREFIX_OP32 ? REG_EIP : REG_IP);
+    enterINT(pM, val, REG_CS, PREFIX_OP32 ? REG_EIP : REG_IP, 1);
     return EX_RESULT_SUCCESS;
 }
 
@@ -2360,7 +2396,7 @@ int exINTO(struct stMachineState *pM, uint32_t pointer){
         return EX_RESULT_SUCCESS;
     }
 
-    enterINT(pM,  INTNUM_OVERFLOW, REG_CS, PREFIX_OP32 ? REG_EIP : REG_IP);
+    enterINT(pM,  INTNUM_OVERFLOW, REG_CS, PREFIX_OP32 ? REG_EIP : REG_IP, 1);
 
     return EX_RESULT_SUCCESS;
 }
