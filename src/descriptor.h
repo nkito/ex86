@@ -77,6 +77,7 @@ void loadCodeSegmentDesc (struct stMachineState *pM, uint16_t selector, struct s
 void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct stRawSegmentDesc *pRS);
 void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP);
 void loadTaskState       (struct stMachineState *pM);
+int  readTSSIOMapBit     (struct stMachineState *pM, uint16_t ioaddr);
 
 
 // Functions for gate descriptors (Call, Trap, Interrupt, Task gates)

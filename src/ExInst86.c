@@ -36,18 +36,18 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
     uint32_t save_data32 = PREFIX_OP32;
     uint32_t save_addr32 = PREFIX_AD32;
     uint32_t saved_eflag;
+    struct stGateDesc GD;
 
     if(int_num == 0x80){
         // Linux system call
         logfile_printf((LOGCAT_CPU_EXE | LOGLV_INFO3), "INT %x: EAX=%x(%d) EBX=%x ECX=%x EDX=%x (CS:EIP=%x:%x)\n", int_num, REG_EAX, REG_EAX, REG_EBX, REG_ECX, REG_EDX, REG_CS, REG_EIP );
     }
 
-    struct stGateDesc GD;
-    loadIntDesc(pM, int_num, &GD);
-
-    if( ! (GD.access & SEGACCESS_PRESENT) ){
-        logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is not present (CS:EIP %x:%x)\n", int_num, pM->reg.current_cs, pM->reg.current_eip);
+    if( (int_num<<3) +7 > pM->reg.idtr_limit ){
+        ENTER_GP( ECODE_SEGMENT_IDT(int_num, 1) );
     }
+
+    loadIntDesc(pM, int_num, &GD);
 
     uint8_t CPL = pM->reg.cpl;
     //uint8_t RPL = (GD.selector&3);
@@ -55,6 +55,11 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
 
     if( isSoftInt && (DPL < CPL) ){
         ENTER_GP( ECODE_SEGMENT_IDT(int_num, 0) );
+    }
+
+    if( ! (GD.access & SEGACCESS_PRESENT) ){
+        logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is not present (CS:EIP %x:%x)\n", int_num, pM->reg.current_cs, pM->reg.current_eip);
+        ENTER_NP( ECODE_SEGMENT_IDT(int_num, 1) );
     }
 
     // op size is determined by descriptors for interrupt

@@ -277,6 +277,18 @@ static uint32_t readDWfromMem(struct stMachineState *pM, uint32_t addr){
 	return result;
 }
 
+static uint16_t readWordFromMem(struct stMachineState *pM, uint32_t addr){
+	uint16_t result;
+	result =  readDataMemByteAsSV(pM, addr+0);
+	result |= (readDataMemByteAsSV(pM, addr+1) << 8);
+	return result;
+}
+
+static uint8_t readByteFromMem(struct stMachineState *pM, uint32_t addr){
+	return readDataMemByteAsSV(pM, addr+0);
+}
+
+
 #define TSS_LOC_PREVTSS 0x00
 #define TSS_LOC_CR3		0x1c
 #define TSS_LOC_EIP		0x20
@@ -340,11 +352,11 @@ void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP){
 
 void loadTaskState(struct stMachineState *pM){
 
-	// TLB should be flushed before loading a new value for CR3
-	flushTLB(pM);
-
 	pM->reg.eflags = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_EFLAGS);
 	pM->reg.cr[3]  = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_CR3);
+
+	// TLB should be flushed once a new value is loaded for CR3
+	flushTLB(pM);
 
 	pM->reg.ldtr = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_LDT);
 	loadRawSegmentDesc(pM, pM->reg.ldtr, &(pM->reg.descc_ldt));
@@ -367,6 +379,21 @@ void loadTaskState(struct stMachineState *pM){
 	pM->reg.eip = readDWfromMem(pM, pM->reg.descc_tr.base + TSS_LOC_EIP);
 }
 
+int readTSSIOMapBit(struct stMachineState *pM, uint16_t ioaddr){
+
+	uint16_t base    = readWordFromMem(pM, pM->reg.descc_tr.base + TSS_LOC_IOMBASE); // 16-bit
+	uint32_t tssaddr = TSS_LOC_IOMBASE + 2 + base + (ioaddr >> 3);
+	uint8_t  iobit   = (ioaddr & 7);
+
+//	printf("%x(%d)\n", base, base);
+
+	if( tssaddr > pM->reg.descc_tr.limit ){
+		return 1;
+	}
+	uint8_t iomap = readByteFromMem(pM, pM->reg.descc_tr.base + tssaddr);
+
+	return ((iomap & (1<<iobit)) ? 1 : 0);
+}
 
 void loadIntDesc(struct stMachineState *pM, uint8_t int_num, struct stGateDesc *pGD){
 

@@ -60,6 +60,12 @@ void writeIODoubleWord (struct stMachineState *pM, uint32_t addr, uint32_t data)
 uint8_t  readIOByte (struct stMachineState *pM, uint32_t addr){
     static uint32_t unhandled = 0;
 
+    if( MODE_PROTECTED ){
+        if( ((pM->reg.cpl > IOPL(REG_EFLAGS)) || MODE_PROTECTEDVM)  && readTSSIOMapBit(pM, addr) ){
+            ENTER_GP(0);
+        }
+    }
+
     // UART
     if(addr == 0 || addr==1){
         return readUARTReg(pM, &(pM->mem.ioUART1), addr);
@@ -124,6 +130,12 @@ uint8_t  readIOByte (struct stMachineState *pM, uint32_t addr){
 
 
 void writeIOByte (struct stMachineState *pM, uint32_t addr, uint8_t  data){
+
+    if( MODE_PROTECTED ){
+        if( ((pM->reg.cpl > IOPL(REG_EFLAGS)) || MODE_PROTECTEDVM)  && readTSSIOMapBit(pM, addr) ){
+            ENTER_GP(0);
+        }
+    }
 
     if(addr == 0){ // addr==0 may conflict with DMA ch0, buf ch0 is not used (because it is reserved for DRAM)
         // UART
