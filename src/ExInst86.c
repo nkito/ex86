@@ -1412,6 +1412,7 @@ int exDASAAS(struct stMachineState *pM, uint32_t pointer){
 }
 
 int exAADAAM(struct stMachineState *pM, uint32_t pointer){
+    uint16_t al;
     uint32_t val;
     uint8_t inst0 = fetchCodeDataByte(pM, pointer);
 
@@ -1426,7 +1427,7 @@ int exAADAAM(struct stMachineState *pM, uint32_t pointer){
     	REG_AX  = ((REG_AX>>8)&0xff) * val + (REG_AX & 0xff);
     	REG_AX &= 0xff;
 
-    	// TODO: FLAGS
+        al = REG_AX;
     }else if(inst0 == 0xd4){
     	if(DEBUG){ 
             EXI_LOG_PRINTF("AAM %x\n", val);
@@ -1438,22 +1439,20 @@ int exAADAAM(struct stMachineState *pM, uint32_t pointer){
             return EX_RESULT_UNKNOWN;
         }
 
-        uint8_t tmp, al;
-        tmp = (REG_AX & 0xff);
-    	REG_AX   = tmp / val;  // AH
-    	REG_AX <<= 8;
-        al = tmp % val;
-    	REG_AX  += al;  // AL
-
-        if(al == 0) REG_FLAGS |= (1<<FLAGS_BIT_ZF);
-        else        REG_FLAGS &=~(1<<FLAGS_BIT_ZF);
-
-        if(al&0x80) REG_FLAGS |= (1<<FLAGS_BIT_SF);
-        else        REG_FLAGS &=~(1<<FLAGS_BIT_SF);
-
-        if(calcParityByte(al)) REG_FLAGS |= (1<<FLAGS_BIT_PF);
-        else                   REG_FLAGS &=~(1<<FLAGS_BIT_PF);
+        al = (REG_AX & 0xff);
+    	REG_AX = ((al / val)<<8);  // AH
+        al = al % val;
+    	REG_AX|= al;  // AL
     }
+
+    if(al == 0) REG_FLAGS |= (1<<FLAGS_BIT_ZF);
+    else        REG_FLAGS &=~(1<<FLAGS_BIT_ZF);
+
+    if(al&0x80) REG_FLAGS |= (1<<FLAGS_BIT_SF);
+    else        REG_FLAGS &=~(1<<FLAGS_BIT_SF);
+
+    if(calcParityByte(al)) REG_FLAGS |= (1<<FLAGS_BIT_PF);
+    else                   REG_FLAGS &=~(1<<FLAGS_BIT_PF);
 
     return EX_RESULT_SUCCESS;
 }
@@ -1468,17 +1467,15 @@ int exDAA(struct stMachineState *pM, uint32_t pointer){
 
     UPDATE_IP(1);
 
-    uint16_t al;
     uint8_t old_al = (REG_AX&0xff);
     uint8_t old_cf = (REG_FLAGS & (1<<FLAGS_BIT_CF)) ? 1 : 0;
     REG_FLAGS &= ~(1<<FLAGS_BIT_CF);
 
-    al = old_al;
-    if((al&0xf)>9 || (REG_FLAGS & (1<<FLAGS_BIT_AF))){
-        if(old_cf || (al+6)>255){
+    if( (old_al & 0x0f) > 9 || (REG_FLAGS & (1<<FLAGS_BIT_AF))  ){
+        REG_AX = (REG_AX&0xff00) | ((old_al + 6) & 0xff);
+        if(old_cf || (old_al > 255-6) ){
             REG_FLAGS |= (1<<FLAGS_BIT_CF);
         }
-        REG_AX = (REG_AX&0xff00) | ((al+6)&0xff);
         REG_FLAGS |=  (1<<FLAGS_BIT_AF);
     }else{
         REG_FLAGS &= ~(1<<FLAGS_BIT_AF);
@@ -1490,6 +1487,16 @@ int exDAA(struct stMachineState *pM, uint32_t pointer){
         REG_FLAGS &= ~(1<<FLAGS_BIT_CF);
     }
 
+    uint8_t al = (REG_AX&0xff);
+    if(al == 0) REG_FLAGS |= (1<<FLAGS_BIT_ZF);
+    else        REG_FLAGS &=~(1<<FLAGS_BIT_ZF);
+
+    if(al&0x80) REG_FLAGS |= (1<<FLAGS_BIT_SF);
+    else        REG_FLAGS &=~(1<<FLAGS_BIT_SF);
+
+    if(calcParityByte(al)) REG_FLAGS |= (1<<FLAGS_BIT_PF);
+    else                   REG_FLAGS &=~(1<<FLAGS_BIT_PF);
+
     return EX_RESULT_SUCCESS;
 }
 
@@ -1498,21 +1505,21 @@ int exConvSiz(struct stMachineState *pM, uint32_t pointer){
     uint8_t inst0 = fetchCodeDataByte(pM, pointer);
 
     if( inst0 == 0x98 ){
-        if(DEBUG) EXI_LOG_PRINTF("CBW\n"); 
-
         if( PREFIX_OP32 ){
+            if(DEBUG) EXI_LOG_PRINTF("CWDE\n"); 
             a = (REG_EAX & 0xffff);
             REG_EAX= ((a & 0x8000) ? (a | 0xffff0000) : a);
         }else{
+            if(DEBUG) EXI_LOG_PRINTF("CBW\n"); 
             a = (REG_AX & 0xff);
             REG_AX = ((a &   0x80) ? (a |     0xff00) : a);
         }
     }else if( inst0 == 0x99 ){
-        if(DEBUG) EXI_LOG_PRINTF("CWD\n"); 
-
         if( PREFIX_OP32 ){
+            if(DEBUG) EXI_LOG_PRINTF("CDQ\n"); 
             REG_EDX= ((REG_EAX & 0x80000000) ? 0xffffffff : 0);
         }else{
+            if(DEBUG) EXI_LOG_PRINTF("CWD\n"); 
             REG_DX = ((REG_AX & 0x8000) ? 0xffff : 0);
         }
     }else{
@@ -2378,7 +2385,7 @@ int exINT(struct stMachineState *pM, uint32_t pointer){
     }
     if(DEBUG) EXI_LOG_PRINTF("INT %x\n", val);
 
-    enterINT(pM, val, REG_CS, PREFIX_OP32 ? REG_EIP : REG_IP, 1);
+    enterINT(pM, val, REG_CS, REG_EIP /*PREFIX_OP32 ? REG_EIP : REG_IP*/, 1);
     return EX_RESULT_SUCCESS;
 }
 
@@ -2398,7 +2405,7 @@ int exINTO(struct stMachineState *pM, uint32_t pointer){
         return EX_RESULT_SUCCESS;
     }
 
-    enterINT(pM,  INTNUM_OVERFLOW, REG_CS, PREFIX_OP32 ? REG_EIP : REG_IP, 1);
+    enterINT(pM,  INTNUM_OVERFLOW, REG_CS, REG_EIP /*PREFIX_OP32 ? REG_EIP : REG_IP*/, 1);
 
     return EX_RESULT_SUCCESS;
 }
@@ -2629,6 +2636,13 @@ int exSetClearFlag(struct stMachineState *pM, uint32_t pointer){
     if(DEBUG){
         EXI_LOG_PRINTF(InstStr[inst0&0x0f]); EXI_LOG_PRINTF("\n");
     }
+
+    if( inst0 == 0xfa || inst0 == 0xfb ){ // CLI, STI
+        if( MODE_PROTECTED && (IOPL(REG_EFLAGS) < pM->reg.cpl) ){
+            ENTER_GP(0);
+        }
+    }
+
 
     if( inst0 == 0xf8 ){ // CLC
         REG_FLAGS &= (0xffff ^ (1<<FLAGS_BIT_CF));

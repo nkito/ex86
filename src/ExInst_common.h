@@ -137,9 +137,9 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
             REG_SP-=2;                                                                            \
             writeDataMemWord(pM, REG_SS_BASE+ REG_SP, (x));                                       \
         }else{                                                                                    \
-            uint32_t __tmp_sp2 = (pM->reg.descc_ss.big) ? REG_ESP-2 : (REG_SP-2)&0xffff; \
+            uint32_t __tmp_sp2 = (pM->reg.descc_ss.big) ? REG_ESP-2 : ((REG_SP-2)&0xffff);        \
             writeDataMemWord(pM, REG_SS_BASE+ __tmp_sp2, (x));                                    \
-            if(pM->reg.descc_ss.big){ REG_ESP-=2; }else{ REG_SP-=2; }                    \
+            if(pM->reg.descc_ss.big){ REG_ESP-=2; }else{ REG_SP-=2; }                             \
         }                                                                                         \
     }else{                                                                                        \
         if( MODE_PROTECTED32 ){ \
@@ -149,9 +149,9 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
                     ENTER_SS(0); \
             } \
         } \
-        uint32_t __tmp_sp4 = (pM->reg.descc_ss.big) ? REG_ESP-4 : ((REG_SP-4)&0xffff);   \
+        uint32_t __tmp_sp4 = (pM->reg.descc_ss.big) ? REG_ESP-4 : ((REG_SP-4)&0xffff);            \
         writeDataMemDoubleWord(pM, REG_SS_BASE + __tmp_sp4, (x));                                 \
-        if(pM->reg.descc_ss.big){ REG_ESP-=4; }else{ REG_SP-=4; }                        \
+        if(pM->reg.descc_ss.big){ REG_ESP-=4; }else{ REG_SP-=4; }                                 \
     }                                                                                             \
 }while(0)
 

@@ -16,7 +16,7 @@
 
 int exPUSHimm(struct stMachineState *pM, uint32_t pointer){
     uint32_t size, val;
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if( inst0 == 0x68 ){
         // imm16/32
@@ -38,7 +38,7 @@ int exPUSHimm(struct stMachineState *pM, uint32_t pointer){
 
 int exPUSHA(struct stMachineState *pM, uint32_t pointer){
     uint32_t old_sp = REG_ESP;
-    uint16_t inst0  = fetchCodeDataByte(pM, pointer);
+    uint8_t inst0  = fetchCodeDataByte(pM, pointer);
 
     if( inst0 != 0x60 ) return EX_RESULT_UNKNOWN;
 
@@ -59,7 +59,7 @@ int exPUSHA(struct stMachineState *pM, uint32_t pointer){
 }
 
 int exPOPA(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if( inst0 != 0x61 ) return EX_RESULT_UNKNOWN;
 
@@ -93,9 +93,9 @@ int exINSOUTS(struct stMachineState *pM, uint32_t pointer){
     uint32_t val;
     struct stOpl op1, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
-    uint16_t bit0  = ((inst0>>0) & 1);
-    uint16_t bit1  = ((inst0>>1) & 1);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t bit0  = ((inst0>>0) & 1);
+    uint8_t bit1  = ((inst0>>1) & 1);
     uint16_t delta  = INST_W_BIT ? (PREFIX_OP32 ? 4 : 2) : 1;
     int32_t  ddelta = (REG_FLAGS & (1<<FLAGS_BIT_DF)) ? -delta : delta;
 
@@ -176,7 +176,7 @@ int exBOUND(struct stMachineState *pM, uint32_t pointer){
     uint16_t size;
     struct stOpl op1, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if( inst0 != 0x62 ) return EX_RESULT_UNKNOWN;
 
@@ -217,7 +217,7 @@ int exIMULimm(struct stMachineState *pM, uint32_t pointer){
     uint64_t rsrcs, lsrcs;
     struct stOpl op, op2;
 
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if( inst0 != 0x69 && inst0 != 0x6b ) return EX_RESULT_UNKNOWN;
 
@@ -275,7 +275,7 @@ int exIMULimm(struct stMachineState *pM, uint32_t pointer){
 int exENTER(struct stMachineState *pM, uint32_t pointer){
     struct stOpl op;
     uint32_t allocsize, nestlevel, frametmp;
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
     uint32_t saved_ad32 = PREFIX_AD32;
 
 
@@ -287,11 +287,15 @@ int exENTER(struct stMachineState *pM, uint32_t pointer){
 
     if(DEBUG) EXI_LOG_PRINTF("ENTER %d %d\n", allocsize, nestlevel); 
 
-    if( pM->reg.descc_ss.big ){
+    if( PREFIX_OP32 ){ // According to i386 and recent Intel IA-32 manuals, this condition is operand size and is not address nor stack size.
         PUSH_TO_STACK( REG_EBP );
-        frametmp = REG_ESP;
     }else{
         PUSH_TO_STACK( REG_BP );
+    }
+
+    if( PREFIX_OP32 ){ // According to a recent Intel IA-32 manual, this condition is operand size. But it is unclear.
+        frametmp = REG_ESP;
+    }else{
         frametmp = REG_SP;
     }
 
@@ -332,11 +336,16 @@ int exENTER(struct stMachineState *pM, uint32_t pointer){
         PUSH_TO_STACK( frametmp );
     }
 
-    if( pM->reg.descc_ss.big ){
+    if( PREFIX_OP32 ){
         REG_EBP = frametmp;
+    }else{
+        REG_BP = (frametmp & 0xfffe);
+    }
+
+    // Note that i386 manual uses "Stack address size" here
+    if( pM->reg.descc_ss.big ){
         REG_ESP -= allocsize;
     }else{
-        REG_BP = frametmp;
         REG_SP -= allocsize;
     }
 
@@ -344,7 +353,7 @@ int exENTER(struct stMachineState *pM, uint32_t pointer){
 }
 
 int exLEAVE(struct stMachineState *pM, uint32_t pointer){
-    uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
+    uint8_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
 
     if(inst0 != 0xc9) return EX_RESULT_UNKNOWN;
 
