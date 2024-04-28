@@ -850,15 +850,17 @@ int exIMUL2Op(struct stMachineState *pM, uint32_t pointer){
 
     int64_t  muls = ((int64_t)rsrcs) * ((int64_t)lsrcs);
 
-    writeOpl(pM, &opl, (uint32_t)(muls & 0xffffffff));
-
     if( PREFIX_OP32 ){
+        writeOpl(pM, &opl, (uint32_t)(muls & 0xffffffff));
+
         if( (muls&0xffffffff80000000ULL) == 0 || (muls&0xffffffff80000000ULL) == 0xffffffff80000000ULL ){
             REG_FLAGS &=~((1<<FLAGS_BIT_CF)|(1<<FLAGS_BIT_OF));
         }else{
             REG_FLAGS |= ((1<<FLAGS_BIT_CF)|(1<<FLAGS_BIT_OF));
         }
     }else{
+        writeOpl(pM, &opl, (uint32_t)(muls & 0xffff));
+
         if( (muls&0xffffffffffff8000ULL) == 0 || (muls&0xffffffffffff8000ULL) == 0xffffffffffff8000ULL ){
             REG_FLAGS &=~((1<<FLAGS_BIT_CF)|(1<<FLAGS_BIT_OF));
         }else{

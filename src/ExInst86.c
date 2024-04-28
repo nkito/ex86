@@ -967,14 +967,16 @@ int exNEGNOT(struct stMachineState *pM, uint32_t pointer){
     UPDATE_IP(size + 1);
 
     val = readOpl(pM,  &op);
-    origval = val;
-    val = ~val;
-    val = (INST_W_BIT ? (PREFIX_OP32 ? val : (val & 0xffff)) : (val & 0xff));
 
-    if( funct == 0x18 ){ // only NEG
-        val = ALUOPSub(pM, 0, origval, INST_W_BIT); // ALUOPAdd(pM, val, 1, INST_W_BIT);
+    if( funct == 0x18 ){ // NEG
+        origval = val;
+        val = ALUOPSub(pM, 0, origval, INST_W_BIT);
         if(origval == 0){ REG_FLAGS &=~(1<<FLAGS_BIT_CF); }
         else            { REG_FLAGS |= (1<<FLAGS_BIT_CF); }
+    }else{               // NOT
+        // flag bits are not affected
+        val = ~val;
+        val = (INST_W_BIT ? (PREFIX_OP32 ? val : (val & 0xffff)) : (val & 0xff));
     }
     writeOpl( pM,  &op, val );
 
@@ -1046,8 +1048,6 @@ int exMUL32(struct stMachineState *pM, uint32_t pointer){
         }else{
             rsrcs = ((rsrc & 0x80ULL)       ? (rsrc|0xffffffffffffff00ULL) : rsrc);
             lsrcs = ((lsrc & 0x80ULL)       ? (lsrc|0xffffffffffffff00ULL) : lsrc);
-            //rsrcs = (int64_t)((int8_t)rsrc);
-            //lsrcs = (int64_t)((int8_t)lsrc);
         }
 
         int64_t  muls = ((int64_t)rsrcs) * ((int64_t)lsrcs);
@@ -1117,19 +1117,16 @@ int exMUL(struct stMachineState *pM, uint32_t pointer){
     if( funct == 0x20 ){ // MUL (unsigned)
         uint32_t mulu = ((uint32_t)rsrc) * ((uint32_t)lsrc);
 
-        if(REG_FLAGS&(1<<FLAGS_BIT_CF)) REG_FLAGS |= (1<<FLAGS_BIT_OF);
-        else                            REG_FLAGS &=~(1<<FLAGS_BIT_OF);
-
         if( INST_W_BIT ){
             REG_AX = ( mulu     &0xffff);
             REG_DX = ((mulu>>16)&0xffff);
-            if(REG_DX !=0) REG_FLAGS |= (1<<FLAGS_BIT_CF);
-            else           REG_FLAGS &=~(1<<FLAGS_BIT_CF);
+            if(REG_DX !=0) REG_FLAGS |= ((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
+            else           REG_FLAGS &=~((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
         }else{
             REG_AX = ( mulu     &0xffff);
 
-            if(REG_AX&0xff00) REG_FLAGS |= (1<<FLAGS_BIT_CF);
-            else              REG_FLAGS &=~(1<<FLAGS_BIT_CF);
+            if(REG_AX&0xff00) REG_FLAGS |= ((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
+            else              REG_FLAGS &=~((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
         }
     }else{ // IMUL (signed)
         uint32_t rsrcs, lsrcs;
@@ -1148,17 +1145,17 @@ int exMUL(struct stMachineState *pM, uint32_t pointer){
             REG_DX = ((muls>>16)&0xffff);
 
             if( (muls&0xffff8000) == 0 || (muls&0xffff8000) == 0xffff8000 ){
-                REG_FLAGS &=~(1<<FLAGS_BIT_CF);
+                REG_FLAGS &=~((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
             }else{
-                REG_FLAGS |= (1<<FLAGS_BIT_CF);
+                REG_FLAGS |= ((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
             }
         }else{
             REG_AX = ( muls     &0xffff);
 
             if( (muls&0xff80) == 0 || (muls&0xff80) == 0xff80 ){
-                REG_FLAGS &=~(1<<FLAGS_BIT_CF);
+                REG_FLAGS &=~((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
             }else{
-                REG_FLAGS |= (1<<FLAGS_BIT_CF);
+                REG_FLAGS |= ((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
             }
         }
     }

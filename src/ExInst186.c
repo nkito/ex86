@@ -214,6 +214,7 @@ int exBOUND(struct stMachineState *pM, uint32_t pointer){
 int exIMULimm(struct stMachineState *pM, uint32_t pointer){
     uint16_t size;
     uint32_t lsrc, rsrc;
+    uint64_t rsrcs, lsrcs;
     struct stOpl op, op2;
 
     uint16_t inst0 = pM->reg.fetchCache[0]; // fetchCodeDataByte(pM, pointer);
@@ -235,12 +236,6 @@ int exIMULimm(struct stMachineState *pM, uint32_t pointer){
 
     rsrc = readOpl(pM, &op);
 
-    if( !PREFIX_OP32 ){
-        lsrc = ((lsrc&0x8000) ? (lsrc|0xffff0000) : lsrc);
-        rsrc = ((rsrc&0x8000) ? (rsrc|0xffff0000) : rsrc);
-    }
-
-
     if(DEBUG){
         EXI_LOG_PRINTF("IMUL ");
         log_printOpl(EXI_LOGLEVEL, pM, &op2); EXI_LOG_PRINTF(",");
@@ -248,24 +243,28 @@ int exIMULimm(struct stMachineState *pM, uint32_t pointer){
         EXI_LOG_PRINTF("0x%x\n", lsrc);
     }
 
-
-    int64_t  muls = ((int64_t)((int32_t)rsrc)) * ((int64_t)((int32_t)lsrc));
+    if( PREFIX_OP32 ){
+        rsrcs = (rsrc & 0x80000000) ? (rsrc|0xffffffff00000000ULL) : rsrc;
+        lsrcs = (lsrc & 0x80000000) ? (lsrc|0xffffffff00000000ULL) : lsrc;
+    }else{
+        rsrcs = (rsrc & 0x8000) ? (rsrc|0xffffffffffff0000ULL) : rsrc;
+        lsrcs = (lsrc & 0x8000) ? (lsrc|0xffffffffffff0000ULL) : lsrc;
+    }
+    int64_t  muls = ((int64_t)rsrcs) * ((int64_t)lsrcs);
 
     if( PREFIX_OP32 ){
         writeOpl(pM, &op2, (uint32_t)(muls & 0xffffffff));
-
-        if( muls < -0x80000000LL || muls > 0x7fffffffLL ){
-            REG_FLAGS |= ((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
+        if( (muls&0xffffffff80000000ULL) == 0 || (muls&0xffffffff80000000ULL) == 0xffffffff80000000ULL ){
+            REG_FLAGS &=~((1<<FLAGS_BIT_CF)|(1<<FLAGS_BIT_OF));
         }else{
-            REG_FLAGS &=~((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
+            REG_FLAGS |= ((1<<FLAGS_BIT_CF)|(1<<FLAGS_BIT_OF));
         }
     }else{
-        writeOpl(pM, &op2, (uint16_t)(muls & 0xffff));
-
-        if( muls < -32768 || muls > 32767 ){
-            REG_FLAGS |= ((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
+        writeOpl(pM, &op2, (uint32_t)(muls & 0xffff));
+        if( (muls&0xffffffffffff8000ULL) == 0 || (muls&0xffffffffffff8000ULL) == 0xffffffffffff8000ULL ){
+            REG_FLAGS &=~((1<<FLAGS_BIT_CF)|(1<<FLAGS_BIT_OF));
         }else{
-            REG_FLAGS &=~((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_OF));
+            REG_FLAGS |= ((1<<FLAGS_BIT_CF)|(1<<FLAGS_BIT_OF));
         }
     }
 

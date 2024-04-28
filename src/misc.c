@@ -44,7 +44,7 @@ static void log_printOpl16(int loglevel, struct stOpl *pOp){
 		}
         logfile_printf_without_header(loglevel, str);
     }else if( pOp->type == OpTypeMemWithSeg ){
-		switch((pOp->reg)&3){
+		switch((pOp->reg)&7){
 			case 0:  str = "ES"; break;
 			case 1:  str = "CS"; break;
 			case 2:  str = "SS"; break;
