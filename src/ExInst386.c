@@ -517,22 +517,22 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
             EXI_LOG_PRINTF("\n");
         }
 
-        struct stOpl opd;
-        opd.type = OpTypeMemWithSeg;
-        opd.reg  = op.reg;
-        opd.addr = readOplEA(pM, &op, 0);
+        if( op.type != OpTypeMemWithSeg ){
+            // not memory operand
+            return EX_RESULT_UNKNOWN;
+        }
 
         PREFIX_OP32 = 0;
         if( funct == 0 ){
             // SGDT 
-            writeOpl(pM, &opd,  pM->reg.gdtr_limit           ); opd.addr+=2;
-            writeOpl(pM, &opd,  pM->reg.gdtr_base     &0xffff); opd.addr+=2;
-            writeOpl(pM, &opd, (pM->reg.gdtr_base>>16)&0xffff);
+            writeOpl(pM, &op,  pM->reg.gdtr_limit           ); op.addr+=2;
+            writeOpl(pM, &op,  pM->reg.gdtr_base     &0xffff); op.addr+=2;
+            writeOpl(pM, &op, (pM->reg.gdtr_base>>16)&0xffff);
         }else{
             // SIDT
-            writeOpl(pM, &opd,  pM->reg.idtr_limit           ); opd.addr+=2;
-            writeOpl(pM, &opd,  pM->reg.idtr_base     &0xffff); opd.addr+=2;
-            writeOpl(pM, &opd, (pM->reg.idtr_base>>16)&0xffff);
+            writeOpl(pM, &op,  pM->reg.idtr_limit           ); op.addr+=2;
+            writeOpl(pM, &op,  pM->reg.idtr_base     &0xffff); op.addr+=2;
+            writeOpl(pM, &op, (pM->reg.idtr_base>>16)&0xffff);
         }
         PREFIX_OP32 = save_op32;
 
@@ -541,9 +541,17 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
         UPDATE_IP( size );
         uint32_t addr = readOplEA(pM, &op, 1);
 
+        if( op.type != OpTypeMemWithSeg ){
+            // not memory operand
+            return EX_RESULT_UNKNOWN;
+        }
+
         uint32_t val16, val32;
-        decode_imm16(pM, addr, &val16);
-        decode_imm32(pM, addr+2, &val32);
+        PREFIX_OP32 = 0;
+        val16 = readOpl(pM, &op); op.addr+=2;
+        PREFIX_OP32 = 1;
+        val32 = readOpl(pM, &op);
+        PREFIX_OP32 = save_op32;
 
         if(DEBUG){
             EXI_LOG_PRINTF(funct == 2 ? "LGDT " : "LIDT "); 
@@ -745,7 +753,7 @@ int exBT(struct stMachineState *pM, uint32_t pointer){
         op1.addr += (((val2 >> 5) * 4) | ((val2&(1<<31)) ? 0xf0000000 : 0) );
     }else{
         bitpos    = (val2&0x0f);
-        op1.addr += (((val2 >> 4) * 2) | ((val2&(1<<31)) ? 0xf0000000 : 0) );
+        op1.addr += (((val2 >> 4) * 2) | ((val2&(1<<15)) ? 0xfffff000 : 0) );
     }
     targetword = readOpl(pM, &op1);
     targetbit  = (targetword & (1<<bitpos));
