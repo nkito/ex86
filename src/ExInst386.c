@@ -188,6 +188,9 @@ int exMOVSZX(struct stMachineState *pM, uint32_t pointer){
     if( (inst1&0xfe) == 0xbe ){
         if( INST_W_BIT ) val = ((val&0x8000) ? (0xffff0000|val) : val);
         else             val = ((val&0x80)   ? (0xffffff00|val) : val);
+    }else{
+        if( INST_W_BIT ) val &= 0xffff;
+        else             val &= 0xff;
     }
 
     UPDATE_IP( size + 2 );

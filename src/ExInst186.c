@@ -316,7 +316,7 @@ int exENTER(struct stMachineState *pM, uint32_t pointer){
                 }else{
                     REG_BP  -= 4;
                     PREFIX_AD32 = 0; // use BP for address
-                    PUSH_TO_STACK (readOpl(pM, &op) );
+                    PUSH_TO_STACK( readOpl(pM, &op) );
                     PREFIX_AD32 = saved_ad32;
                 }
             }else{

@@ -697,12 +697,14 @@ int exAHF(struct stMachineState *pM, uint32_t pointer){
     if( inst0 == 0x9f ){
         if(DEBUG) EXI_LOG_PRINTF("LAHF\n"); 
 
-        REG_AX = ((REG_AX & 0x00ff) | ((REG_FLAGS<<8) & 0xff00));
+        uint16_t tmp_flag = ((readFLAGS(pM) & 0x00ff) << 8);
+        REG_AX = ((REG_AX & 0x00ff) | tmp_flag);
     }else if( inst0 == 0x9e ){
         if(DEBUG) EXI_LOG_PRINTF("SAHF\n"); 
 
         REG_FLAGS &= 0xff00;
         REG_FLAGS |= ((REG_AX>>8) & ((1<<FLAGS_BIT_CF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_AF) | (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_SF)));
+        REG_FLAGS |= 2;
     }else{
         return EX_RESULT_UNKNOWN;
     }
@@ -757,12 +759,16 @@ int exPUSHFPOPF(struct stMachineState *pM, uint32_t pointer){
             }else{
                 REG_FLAGS  = flag;
             }
-        }else{ // cpl > 0
+        }else{
+            // protected and cpl > 0
             if( PREFIX_OP32 ){
                 if( pM->reg.cpl > IOPL(REG_EFLAGS) ){
                     // VM bit should not be changed with POPF
-                    REG_EFLAGS &= (1<<EFLAGS_BIT_VM);
-                    REG_EFLAGS |= (flag & (~(1<<EFLAGS_BIT_VM)));
+                    mask = ((1<<FLAGS_BIT_IF) | FLAGS_BIT_IOPL_MASK | (1<<EFLAGS_BIT_VM));
+
+                    REG_EFLAGS &= mask;
+                    REG_EFLAGS |= (flag & (~mask));
+                    REG_EFLAGS &= ~(1<<EFLAGS_BIT_RF);
                 }else{
                     mask  = (FLAGS_BIT_IOPL_MASK | (1<<EFLAGS_BIT_VM));
 
@@ -931,7 +937,7 @@ int exINCDEC(struct stMachineState *pM, uint32_t pointer){
     }
 
     // CF should not be affected
-    int8_t cf = (REG_FLAGS & (1<<FLAGS_BIT_CF)) ? 1 : 0;
+    int8_t cf = ((REG_FLAGS & (1<<FLAGS_BIT_CF)) ? 1 : 0);
 
     val = readOpl(pM,  &op);
     if( funct == 0x00 ){
@@ -1365,7 +1371,7 @@ int exDASAAS(struct stMachineState *pM, uint32_t pointer){
     	if(DEBUG) EXI_LOG_PRINTF("DAS\n"); 
 
         old_al = ((REG_AX)  & 0xff);
-        old_cf = (REG_FLAGS & (1<<FLAGS_BIT_CF)) ? 1 : 0;
+        old_cf =((REG_FLAGS & (1<<FLAGS_BIT_CF)) ? 1 : 0);
         REG_FLAGS &= ~(1<<FLAGS_BIT_CF);
 
         if( (old_al & 0x0f) > 9 || (REG_FLAGS & (1<<FLAGS_BIT_AF))  ){
@@ -1468,7 +1474,7 @@ int exDAA(struct stMachineState *pM, uint32_t pointer){
     UPDATE_IP(1);
 
     uint8_t old_al = (REG_AX&0xff);
-    uint8_t old_cf = (REG_FLAGS & (1<<FLAGS_BIT_CF)) ? 1 : 0;
+    uint8_t old_cf =((REG_FLAGS & (1<<FLAGS_BIT_CF)) ? 1 : 0);
     REG_FLAGS &= ~(1<<FLAGS_BIT_CF);
 
     if( (old_al & 0x0f) > 9 || (REG_FLAGS & (1<<FLAGS_BIT_AF))  ){
