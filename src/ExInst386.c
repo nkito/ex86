@@ -455,7 +455,8 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
         		ENTER_GP(0);
         	}
             struct stRawSegmentDesc RS;
-            loadTaskRegister(pM, segval, &RS);
+            // Set busy bit
+            loadTaskRegister(pM, segval, &RS, 1, 0);
             pM->reg.descc_tr = RS;
             pM->reg.tr       = segval;
         }
@@ -643,7 +644,7 @@ int exSETcc(struct stMachineState *pM, uint32_t pointer){
 
     size = decode_mod_rm(pM, pointer+2, INST_W_BYTEACC, &op);
     UPDATE_IP( 2 + size );
-    cond = inst1&0x0f;
+    cond = (inst1 & 0x0f);
 
     const char *InstStr[] = 
         {"SETO ", "SETNO ", "SETB ", "SETNB ", "SETE ", "SETNE ", "SETBE ", "SETNBE ",

@@ -235,32 +235,6 @@ void loadCodeSegmentDesc(struct stMachineState *pM, uint16_t selector, struct st
 	}
 }
 
-void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct stRawSegmentDesc *pRS){
-	uint16_t selector_body = (selector & (~7));
-	uint32_t base, limit, pointer;
-
-	if( selector & 0x4 ){
-		// this selector must point a descriptor in GDT.
-		ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
-	}
-	base    = pM->reg.gdtr_base;
-	limit   = pM->reg.gdtr_limit;
-
-	if( selector        <     4 ) ENTER_GP(0);
-	if( selector_body+7 > limit ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
-
-	pointer = base + selector_body;
-	uint8_t access = readDataMemByteAsSV(pM, pointer+5);
-
-	if( ! (SEGACCESS_PRESENT & access) ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
-
-	writeDataMemByteAsSV(pM, pointer+5, (access & 0xf0) | SYSDESC_TYPE_TSS32_BUSY );
-
-	loadRawSegmentDescData(pM, base, limit, selector, pRS);
-}
-
-
-
 static void writeBackDWtoMem(struct stMachineState *pM, uint32_t addr, uint32_t data){
 	writeDataMemByteAsSV(pM, addr+0, (data>> 0) & 0xff);
 	writeDataMemByteAsSV(pM, addr+1, (data>> 8) & 0xff);
@@ -310,9 +284,39 @@ static uint8_t readByteFromMem(struct stMachineState *pM, uint32_t addr){
 #define TSS_LOC_LDT		0x60
 #define TSS_LOC_IOMBASE	0x66
 
+void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct stRawSegmentDesc *pRS, int setTaskBusy, uint16_t prevTaskLink){
+	uint16_t selector_body = (selector & (~7));
+	uint32_t base, limit, pointer;
 
-/* Clear BUSY flag of current TSS descripter (specified by TR) and save state into TSS */
-void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP){
+	if( selector & 0x4 ){
+		// this selector must point a descriptor in GDT.
+		ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
+	}
+	base    = pM->reg.gdtr_base;
+	limit   = pM->reg.gdtr_limit;
+
+	if( selector        <     4 ) ENTER_GP(0);
+	if( selector_body+7 > limit ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
+
+	pointer = base + selector_body;
+	uint8_t access = readDataMemByteAsSV(pM, pointer+5);
+
+	if( ! (SEGACCESS_PRESENT & access) ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
+
+	if( setTaskBusy ){
+		writeDataMemByteAsSV(pM, pointer+5, (access & 0xf0) | SYSDESC_TYPE_TSS32_BUSY );
+	}
+
+	if( prevTaskLink != 0 ){
+		writeDataMemByteAsSV(pM, pM->reg.descc_tr.base + TSS_LOC_PREVTSS+0, prevTaskLink      & 0xff);
+		writeDataMemByteAsSV(pM, pM->reg.descc_tr.base + TSS_LOC_PREVTSS+1, (prevTaskLink>>8) & 0xff);
+	}
+
+	loadRawSegmentDescData(pM, base, limit, selector, pRS);
+}
+
+/* Clear BUSY bit of current TSS descripter (specified by TR) and NT flag of FLAG reg according to the options, and save state into TSS */
+void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP, int clearTaskBusy, int clearNTflag){
 	uint16_t selector_body = (pM->reg.tr & (~7));
 	uint32_t base, limit;
 
@@ -327,8 +331,13 @@ void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP){
 	if( pM->reg.tr      <     4 ) ENTER_GP(0);
 	if( selector_body+7 > limit ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(pM->reg.tr) );
 
-	uint32_t pointer = base + selector_body;
-	writeDataMemByteAsSV(pM, pointer+5, (pM->reg.descc_tr.access & 0xf0) | SYSDESC_TYPE_TSS32_AVAIL );
+	if( clearTaskBusy ){
+		uint32_t pointer = base + selector_body;
+		writeDataMemByteAsSV(pM, pointer+5, (pM->reg.descc_tr.access & 0xf0) | SYSDESC_TYPE_TSS32_AVAIL );
+	}
+	if( clearNTflag ){
+		pM->reg.eflags &= ~(1<<FLAGS_BIT_NT);
+	}
 
 	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_EAX, pM->reg.eax);
 	writeBackDWtoMem(pM, pM->reg.descc_tr.base + TSS_LOC_ECX, pM->reg.ecx);

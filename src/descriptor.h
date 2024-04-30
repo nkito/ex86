@@ -74,8 +74,8 @@ void loadRawSegmentDesc       (struct stMachineState *pM, uint16_t selector, str
 void loadDataSegmentDesc (struct stMachineState *pM, uint16_t selector, struct stDataDesc *pDD);
 void loadStackSegmentDesc(struct stMachineState *pM, uint16_t selector, struct stDataDesc *pDD);
 void loadCodeSegmentDesc (struct stMachineState *pM, uint16_t selector, struct stCodeDesc *pCD);
-void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct stRawSegmentDesc *pRS);
-void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP);
+void loadTaskRegister    (struct stMachineState *pM, uint16_t selector, struct stRawSegmentDesc *pRS, int setTaskBusy, uint16_t prevTaskLink);
+void unloadTaskRegister  (struct stMachineState *pM, uint32_t nextEIP, int clearTaskBusy, int clearNTflag);
 void loadTaskState       (struct stMachineState *pM);
 int  readTSSIOMapBit     (struct stMachineState *pM, uint16_t ioaddr);
 

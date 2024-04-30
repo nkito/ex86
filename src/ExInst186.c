@@ -68,7 +68,8 @@ int exPOPA(struct stMachineState *pM, uint32_t pointer){
         POP_FROM_STACK(REG_EDI);
         POP_FROM_STACK(REG_ESI);
         POP_FROM_STACK(REG_EBP);
-        POP_FROM_STACK( inst0 ); // dummy
+//        POP_FROM_STACK( inst0 ); // dummy
+        if(pM->reg.descc_ss.big){REG_ESP+=4;}else{REG_SP+=4;}
         POP_FROM_STACK(REG_EBX);
         POP_FROM_STACK(REG_EDX);
         POP_FROM_STACK(REG_ECX);
@@ -77,7 +78,8 @@ int exPOPA(struct stMachineState *pM, uint32_t pointer){
         POP_FROM_STACK(REG_DI);
         POP_FROM_STACK(REG_SI);
         POP_FROM_STACK(REG_BP);
-        POP_FROM_STACK( inst0 ); // dummy
+//        POP_FROM_STACK( inst0 ); // dummy
+        if(pM->reg.descc_ss.big){REG_ESP+=2;}else{REG_SP+=2;}
         POP_FROM_STACK(REG_BX);
         POP_FROM_STACK(REG_DX);
         POP_FROM_STACK(REG_CX);
@@ -284,6 +286,9 @@ int exENTER(struct stMachineState *pM, uint32_t pointer){
     decode_imm16(pM, pointer+1, &allocsize);
     decode_imm  (pM, pointer+3, INST_W_BYTEACC, &nestlevel, INST_S_NOSIGNEX); nestlevel &= (32-1);
     UPDATE_IP(4);
+
+    // imm16(allocsize) is signed.
+    if( allocsize & 0x8000 ) allocsize |= 0xffff0000;
 
     if(DEBUG) EXI_LOG_PRINTF("ENTER %d %d\n", allocsize, nestlevel); 
 

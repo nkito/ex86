@@ -1930,6 +1930,97 @@ int exStringInst(struct stMachineState *pM, uint32_t pointer){
     return EX_RESULT_SUCCESS;
 }
 
+
+static int exCALL_interSegment(struct stMachineState *pM, uint32_t pointer, uint32_t seg, uint32_t offset, uint32_t next_eip){
+    uint8_t access;
+
+    if( (pM->emu.emu_cpu < EMU_CPU_80286) || (!MODE_PROTECTED32) ){
+        if(PREFIX_OP32){ 
+            PUSH_TO_STACK( REG_CS  );
+            PUSH_TO_STACK( REG_EIP ); 
+            updateSegReg(pM, SEGREG_NUM_CS, seg);
+            REG_EIP = offset;
+        }else{
+            PUSH_TO_STACK( REG_CS );
+            PUSH_TO_STACK( REG_IP );
+            updateSegReg(pM, SEGREG_NUM_CS, seg);
+            REG_EIP = (offset & 0xffff);
+        }
+
+        return EX_RESULT_SUCCESS;
+    }
+
+    // protected mode (non-VM86)
+    if( ! getDescType(pM, seg, &access) ){
+        ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
+    }
+
+    if( SEGACCESS_IS_TSS32_AVAIL(access) ){
+        struct stRawSegmentDesc RS;
+        uint8_t RPL = (seg & 3);
+
+        // load TSS descriptor pointed by selector value "seg"
+        // (do NOT load register values from TSS here)
+        // Set busy bits and link field
+        loadTaskRegister(pM, seg, &RS, 1, pM->reg.tr);
+
+        if((RS.limit < TSS_MINIMUM_LIMIT_VALUE_32BIT) || 
+            pM->reg.cpl > SEGACCESS_DPL(RS.access)    ||
+            RPL         > SEGACCESS_DPL(RS.access) ){
+            ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
+        }
+
+        // Save current register values, and keep busy bit of the TSS and keep NT flag
+        unloadTaskRegister(pM, next_eip, 0, 0);
+
+        // Change the task register and load register value from TSS
+        pM->reg.tr       = seg;
+        pM->reg.descc_tr = RS;
+        pM->reg.cr[0]   |= (1<<CR0_BIT_TS);
+        loadTaskState(pM);
+
+        // set NT flag of the new task in CALL
+        REG_FLAGS |= (1<<FLAGS_BIT_NT);
+
+    }else if( SEGACCESS_IS_CALLGATE32(access) ){
+        logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "LJMP %x:%x   (TRAPGATE, %x)\n", seg, offset, pointer);
+        return EX_RESULT_UNKNOWN;
+    }else{
+        if( !SEGACCESS_IS_CSEG(access) ){
+            return EX_RESULT_UNKNOWN;
+        }
+
+        if( SEGACCESS_CSEG_IS_CONFORMING(access) ){
+            // conforming case
+            if( SEGACCESS_DPL(access) > pM->reg.cpl ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
+        }else{
+            // nonconforming case
+            if( (seg&3)               >  pM->reg.cpl ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
+            if( SEGACCESS_DPL(access) != pM->reg.cpl ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
+        }
+
+        if( !(SEGACCESS_PRESENT & access) ){
+            ENTER_NP( ECODE_SEGMENT_GDT_LDT(seg) );
+        }
+
+        seg = ((seg&(~3)) | pM->reg.cpl);
+
+        if(PREFIX_OP32){ 
+            PUSH_TO_STACK( REG_CS  );
+            PUSH_TO_STACK( REG_EIP ); 
+            updateSegReg(pM, SEGREG_NUM_CS, seg);
+            REG_EIP = offset;
+        }else{
+            PUSH_TO_STACK( REG_CS );
+            PUSH_TO_STACK( REG_IP );
+            updateSegReg(pM, SEGREG_NUM_CS, seg);
+            REG_EIP = (offset & 0xffff);
+        }
+    }
+
+    return EX_RESULT_SUCCESS;
+}
+
 int exCALL(struct stMachineState *pM, uint32_t pointer){
     uint32_t val, val2, size;
     struct stOpl op;
@@ -1949,21 +2040,22 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
         }else{
             REG_IP += (1+size);
             PUSH_TO_STACK( REG_IP );
-            REG_IP += val;
+            REG_IP += val; REG_EIP &= 0xffff;
         }
         if(DEBUG) EXI_LOG_PRINTF("CALL %x\n", val);
 
     }else if( inst0 == 0xff && (inst1 & 0x38) == 0x10 ){
         // Indirect within segment
         size = decode_mod_rm(pM,  pointer+1, INST_W_WORDACC, &op);
+        uint32_t new_ip = readOpl(pM,  &op);
         if(PREFIX_OP32){ 
             REG_EIP += (1+size); 
             PUSH_TO_STACK( REG_EIP );
-            REG_EIP = readOpl(pM,  &op);
+            REG_EIP = new_ip;
         }else{
             REG_IP += (1+size);
             PUSH_TO_STACK( REG_IP );
-            REG_IP = readOpl(pM,  &op);
+            REG_EIP = (new_ip & 0xffff);
         }
         if(DEBUG){ EXI_LOG_PRINTF("CALL ("); log_printOpl(EXI_LOGLEVEL, pM, &op); EXI_LOG_PRINTF(")\n"); }
 
@@ -1977,34 +2069,17 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
 
         if(DEBUG) EXI_LOG_PRINTF("LCALL %x:%x\n", val2, val);
 
-        if(  MODE_PROTECTED32 ){
-            uint8_t access;
-            if( ! getDescType(pM, val2, &access) ){
-                ENTER_GP( ECODE_SEGMENT_GDT_LDT(val2) );
-            }
+        UPDATE_IP( 1+size+2 );
 
-            if( !SEGACCESS_IS_CSEG(access) ){
-                return EX_RESULT_UNKNOWN;
-            }
-        }
-
-        if(PREFIX_OP32){ 
-            REG_EIP += 7;
-            PUSH_TO_STACK( REG_CS  ); updateSegReg(pM, SEGREG_NUM_CS, val2);
-            PUSH_TO_STACK( REG_EIP ); REG_EIP = val;
-        }else{
-            REG_IP += 5;
-            PUSH_TO_STACK( REG_CS ); updateSegReg(pM, SEGREG_NUM_CS, val2);
-            PUSH_TO_STACK( REG_IP ); REG_EIP = (val & 0xffff);
-        }
+        return exCALL_interSegment(pM, pointer, val2, val, REG_EIP);
 
     }else if( inst0 == 0xff && (inst1 & 0x38) == 0x18 ){
         // Indirect intersegment
         size = decode_mod_rm(pM,  pointer+1, INST_W_WORDACC, &op);
         UPDATE_IP( 1+size );
 
-        // this data should be read before writing code segment
-        // (segment prefix counld be used for this instruction)
+        // this data should be read before pushing code segment
+        // (segment prefix could be used for this instruction)
         uint32_t new_ip = readOpl(pM,  &op);
 
         PREFIX_OP32 = 0;
@@ -2014,23 +2089,7 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
 
         if(DEBUG){ EXI_LOG_PRINTF("LCALL %x:%x\n", new_cs, new_ip); }
 
-        if(  MODE_PROTECTED32 ){
-            uint8_t access;
-            if( ! getDescType(pM, new_cs, &access) ){
-                ENTER_GP( ECODE_SEGMENT_GDT_LDT(new_cs) );
-            }
-            if( !SEGACCESS_IS_CSEG(access) ){
-                return EX_RESULT_UNKNOWN;
-            }
-        }
-
-        if(PREFIX_OP32){ 
-            PUSH_TO_STACK( REG_CS  ); updateSegReg(pM, SEGREG_NUM_CS, new_cs);
-            PUSH_TO_STACK( REG_EIP ); REG_EIP = new_ip;
-        }else{
-            PUSH_TO_STACK( REG_CS  ); updateSegReg(pM, SEGREG_NUM_CS, new_cs);
-            PUSH_TO_STACK( REG_IP  ); REG_EIP = (new_ip & 0xffff);
-        }
+        return exCALL_interSegment(pM, pointer, new_cs, new_ip, REG_EIP);
     }else{
         return EX_RESULT_UNKNOWN;
     }
@@ -2041,12 +2100,11 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
 
 static int exJMP_interSegment(struct stMachineState *pM, uint32_t pointer, uint32_t seg, uint32_t offset, uint32_t next_eip){
     uint8_t access;
-    struct stRawSegmentDesc RS;
 
     if( PREFIX_OP32 ){
         REG_EIP = offset;
     }else{
-        REG_IP = offset;
+        REG_EIP = (offset & 0xffff);
     }
 
     if( pM->emu.emu_cpu >= EMU_CPU_80286 && MODE_PROTECTED32 ){
@@ -2054,22 +2112,24 @@ static int exJMP_interSegment(struct stMachineState *pM, uint32_t pointer, uint3
             ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
         }
         if( SEGACCESS_IS_TSS32_AVAIL(access) ){
+            struct stRawSegmentDesc RS;
             uint8_t RPL = (seg & 3);
 
             if(DEBUG) EXI_LOG_PRINTF("LJMP %x:%x   (TSS)\n", seg, offset, pointer);
 
-            // load TSS descriptor pointed by selector value "val2"
+            // load TSS descriptor pointed by selector value "seg"
             // (do NOT load register values from TSS here)
-            loadTaskRegister(pM, seg, &RS);
+            // Set busy bits, and keep link field
+            loadTaskRegister(pM, seg, &RS, 1, 0);
 
             if((RS.limit < TSS_MINIMUM_LIMIT_VALUE_32BIT) || 
                 pM->reg.cpl > SEGACCESS_DPL(RS.access)    ||
                 RPL         > SEGACCESS_DPL(RS.access) ){
-                ENTER_TS( ECODE_SEGMENT_GDT_LDT(seg) );
+                ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
             }
 
-            // Save current register values and clear busy flag of the TSS
-            unloadTaskRegister(pM, next_eip);
+            // Save current register values, clear busy bit of the TSS and keep NT flag
+            unloadTaskRegister(pM, next_eip, 1, 0);
 
             // Change the task register and load register value from TSS
             pM->reg.tr       = seg;
@@ -2077,19 +2137,20 @@ static int exJMP_interSegment(struct stMachineState *pM, uint32_t pointer, uint3
             pM->reg.cr[0]   |= (1<<CR0_BIT_TS);
             loadTaskState(pM);
 
+            // clear NT flag of the new task in JMP
+            REG_FLAGS &= ~(1<<FLAGS_BIT_NT);
+
         }else if( SEGACCESS_IS_CALLGATE32(access) ){
             logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "LJMP %x:%x   (TRAPGATE, %x)\n", seg, offset, pointer);
             return EX_RESULT_UNKNOWN;
         }else{
-            loadRawSegmentDesc(pM, seg, &RS);
-
-            if( SEGACCESS_CSEG_IS_CONFORMING(RS.access) ){
-                // nonconforming case
-                if( SEGACCESS_DPL(RS.access) > pM->reg.cpl ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
+            if( SEGACCESS_CSEG_IS_CONFORMING(access) ){
+                // conforming case
+                if( SEGACCESS_DPL(access) > pM->reg.cpl ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
             }else{
                 // nonconforming case
-                if( (seg&3)                  >  pM->reg.cpl ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
-                if( SEGACCESS_DPL(RS.access) != pM->reg.cpl ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
+                if( (seg&3)               >  pM->reg.cpl ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
+                if( SEGACCESS_DPL(access) != pM->reg.cpl ) ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
             }
 
             seg = ((seg&(~3)) | pM->reg.cpl);
@@ -2157,7 +2218,8 @@ int exJMP(struct stMachineState *pM, uint32_t pointer){
         }else{
             val = readOpl(pM, &op); op.addr += 2;
         }
-        val2 = readOpl(pM,  &op);
+        val2  = readOpl(pM,  &op);
+        val2 &= 0xffff;
 
         next_eip = REG_EIP + 1 + size;
         return exJMP_interSegment(pM, pointer, val2, val, next_eip);
@@ -2199,7 +2261,9 @@ int exRET(struct stMachineState *pM, uint32_t pointer){
     }else if( inst0 == 0xc2 || inst0 == 0xca ){
         // adding immed to SP
 
-        decode_imm16(pM, pointer+1, &val);
+        // imm16 is a signed value according to the recent Intel 64 and IA-32 architecture software developer's manual
+        decode_imm16(pM, pointer+1, &val); 
+        if( (val & 0x8000) && PREFIX_OP32 ) val |= 0xffff0000;
 
         if( PREFIX_OP32 ){ POP_FROM_STACK( REG_EIP );                  }
         else             { POP_FROM_STACK( REG_EIP ); REG_EIP&=0xffff; }
@@ -2493,7 +2557,8 @@ int exIRET_NT(struct stMachineState *pM, uint32_t pointer){
 
     // load a TSS descriptor pointed by "next_tr"
     // loading values from TSS is done after checking the descriptor
-    loadTaskRegister(pM, next_tr, &RS);
+    // Keep busy bits and link field
+    loadTaskRegister(pM, next_tr, &RS, 0, 0);
 
     if((RS.limit < TSS_MINIMUM_LIMIT_VALUE_32BIT) || 
         pM->reg.cpl > SEGACCESS_DPL(RS.access)    ||
@@ -2501,14 +2566,16 @@ int exIRET_NT(struct stMachineState *pM, uint32_t pointer){
         ENTER_TS( ECODE_SEGMENT_GDT_LDT(next_tr) );
     }
 
-    // Save current register values and clear busy flag of the TSS
-    unloadTaskRegister(pM, pM->reg.current_eip + 1);
+    // Save current register values and clear busy bit of the TSS and NT flag
+    unloadTaskRegister(pM, pM->reg.current_eip + 1, 1, 1);
 
     // Change the task register and load register value from TSS
     pM->reg.tr       = next_tr;
     pM->reg.descc_tr = RS;
     pM->reg.cr[0]   |= (1<<CR0_BIT_TS);
     loadTaskState(pM);
+
+    // keep NT flag of the new task in IRET
 
     return EX_RESULT_SUCCESS;
 }
