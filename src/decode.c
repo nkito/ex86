@@ -103,8 +103,8 @@ uint32_t decode_mod_rm(struct stMachineState *pM, uint32_t pointer, uint8_t widt
 		if( mod == 3 ){
 			pOp1->type = OpTypeReg; pOp1->reg = rm;
 		}else{
-			uint16_t seg_ss = (PREFIX_SEG != PREF_SEG_UNSPECIFIED) ? PREFIX_SEG : 2;
-			uint16_t seg_ds = (PREFIX_SEG != PREF_SEG_UNSPECIFIED) ? PREFIX_SEG : 3;
+			uint16_t seg_ss = (PREFIX_SEG != PREF_SEG_UNSPECIFIED) ? PREFIX_SEG : SEGREG_NUM_SS;
+			uint16_t seg_ds = (PREFIX_SEG != PREF_SEG_UNSPECIFIED) ? PREFIX_SEG : SEGREG_NUM_DS;
 
 			uint16_t disp_w = fetchCodeDataWord(pM, pointer+1);
 			uint16_t disp_lo = (disp_w&0xff);

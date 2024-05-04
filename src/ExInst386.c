@@ -414,7 +414,9 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
             uint16_t result = ((funct == 0) ? pM->reg.ldtr : pM->reg.tr);
 
             if( op.type == OpTypeReg ){
-                PREFIX_OP32 = 1;
+                // The behavior is processor family dependent.
+                // Recent processor clears the upper 16-bits when destination is a 32-bit reg.
+                PREFIX_OP32 = save_op32;
                 writeOpl( pM, &op, (uint32_t)result );
             }else{
                 writeOpl( pM, &op, result );

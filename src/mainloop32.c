@@ -207,6 +207,7 @@ void mainloop32_inner(struct stMachineState *pM){
 		pointer = REG_CS_BASE + REG_EIP;
 		pM->reg.current_cs  = REG_CS;    // To save the instruction pointer including prefix
 		pM->reg.current_eip = REG_EIP;   // To save the instruction pointer including prefix
+		pM->reg.current_esp = REG_ESP;   // To save the stack pointer to recover from incomplete execution of an instruction when a fault occurs during the execution. See "enterINTwithECODE"
 		pM->reg.fault = 0;
 
 		pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
@@ -305,8 +306,11 @@ void mainloop32_inner(struct stMachineState *pM){
 					enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP, 0);
 
 				}else if( (pM->mem.ioUART1.int_enable & 0x1) ){
-					if( ++(pM->mem.ioUART1.chkCntForInt) > 100 ){
+					// Checking received charactor after every instruction is not required.
+					// The check frequency is reduced by the counter.
+					if( ++(pM->mem.ioUART1.chkCntForInt) > 200 ){
 						readUARTReg(pM, &(pM->mem.ioUART1), IOADDR_COM1_BASE + UART_REG_LINESTAT);
+						pM->mem.ioUART1.chkCntForInt = 0;
 					}
 					if( pM->mem.ioUART1.buffered ){
 						logfile_printf(LOGLEVEL_EMU_INFO, "UART interrupt (rx ready) \n");

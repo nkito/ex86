@@ -6,88 +6,88 @@
 
 #define EMU_MEM_SIZE (8*1024*1024)
 
-#define EMU_CPU_8086	1
-#define EMU_CPU_80186	2
-#define EMU_CPU_80286	3
-#define EMU_CPU_80386	4
+#define EMU_CPU_8086    1
+#define EMU_CPU_80186   2
+#define EMU_CPU_80286   3
+#define EMU_CPU_80386   4
 
 
 #ifndef DEBUG
-	extern int DEBUG;
+    extern int DEBUG;
 #endif
 
 struct stEmuSetting{
-	int emu_cpu;
-	uint32_t breakPoint;
-	uint32_t breakMask;
-	uint32_t runAfterBreak;
-	uint64_t breakCounter;
-	sigjmp_buf env;
-	uint64_t nExecInsts;
-	uint64_t stop;
-	unsigned int log_enabled_cat;
-	unsigned int log_level;
+    int emu_cpu;
+    uint32_t breakPoint;
+    uint32_t breakMask;
+    uint32_t runAfterBreak;
+    uint64_t breakCounter;
+    sigjmp_buf env;
+    uint64_t nExecInsts;
+    uint64_t stop;
+    unsigned int log_enabled_cat;
+    unsigned int log_level;
 };
 
 #define PREF_REP_UNSPECIFIED -1
 #define PREF_SEG_UNSPECIFIED -1
 
 struct stPrefix{
-	int8_t seg;
-	int8_t repz;   // 
-	int8_t addr32; // 0 : 16-bit, 1 : 32-bit
-	int8_t data32; // 0 : 16-bit, 1 : 32-bit
+    int8_t seg;
+    int8_t repz;   // 
+    int8_t addr32; // 0 : 16-bit, 1 : 32-bit
+    int8_t data32; // 0 : 16-bit, 1 : 32-bit
 };
 
 struct stRawSegmentDesc{
-	uint32_t base;
-	uint32_t limit;
-	uint8_t access;
-	uint8_t flags;
+    uint32_t base;
+    uint32_t limit;
+    uint8_t access;
+    uint8_t flags;
 };
 
 struct stGateDesc{
-	uint32_t offset;
-	uint16_t selector;
-	uint8_t access;
-	uint8_t len;
+    uint32_t offset;
+    uint16_t selector;
+    uint8_t access;
+    uint8_t len;
 
-	uint8_t DPL;
+    uint8_t DPL;
 };
 
 struct stDataDesc{
-	uint32_t base;
-	uint32_t limit;
-	uint8_t access;
-	uint8_t flags;
+    uint32_t base;
+    uint32_t limit;
+    uint8_t access;
+    uint8_t flags;
 
-	uint8_t gran;
-	uint8_t big;
-	uint8_t writable;
-	uint8_t DPL;
-	uint32_t limit_min, limit_max;
+    uint8_t gran;
+    uint8_t big;
+    uint8_t writable;
+    uint8_t DPL;
+    uint32_t limit_min, limit_max;
 };
 
 struct stCodeDesc{
-	uint32_t base;
-	uint32_t limit;
-	uint8_t access;
-	uint8_t flags;
+    uint32_t base;
+    uint32_t limit;
+    uint8_t access;
+    uint8_t flags;
 
-	uint8_t gran;
-	uint8_t def;
-	uint8_t readable;
-	uint8_t conforming;
-	uint8_t DPL;
-	uint32_t limit_min, limit_max;
+    uint8_t gran;
+    uint8_t def;
+    uint8_t readable;
+    uint8_t conforming;
+    uint8_t DPL;
+    uint32_t limit_min, limit_max;
 };
 
 #define TLB_ENTRY_BITS 10
 #define TLB_NASOC       2
 
 struct stTLB{
-	uint32_t addr[TLB_NASOC];
-	uint32_t pte [TLB_NASOC];
+    uint32_t addr[TLB_NASOC];
+    uint32_t pte [TLB_NASOC];
 };
 
 /*
@@ -109,193 +109,194 @@ FIRST_WORD_IDX_IN_DWORD should be defined so that
 #endif
 
 struct stReg{
-	union{
-		uint32_t eax;
-		uint16_t ax[2];
-	};
-	union{
-		uint32_t ebx;
-		uint16_t bx[2];
-	};
-	union{
-		uint32_t ecx;
-		uint16_t cx[2];
-	};
-	union{
-		uint32_t edx;
-		uint16_t dx[2];
-	};
+    union{
+        uint32_t eax;
+        uint16_t ax[2];
+    };
+    union{
+        uint32_t ebx;
+        uint16_t bx[2];
+    };
+    union{
+        uint32_t ecx;
+        uint16_t cx[2];
+    };
+    union{
+        uint32_t edx;
+        uint16_t dx[2];
+    };
 
-	union{
-		uint32_t esp;
-		uint16_t sp[2];
-	};
-	union{
-		uint32_t ebp;
-		uint16_t bp[2];
-	};
-	union{
-		uint32_t esi;
-		uint16_t si[2];
-	};
-	union{
-		uint32_t edi;
-		uint16_t di[2];
-	};
+    union{
+        uint32_t esp;
+        uint16_t sp[2];
+    };
+    union{
+        uint32_t ebp;
+        uint16_t bp[2];
+    };
+    union{
+        uint32_t esi;
+        uint16_t si[2];
+    };
+    union{
+        uint32_t edi;
+        uint16_t di[2];
+    };
 
-	uint16_t es;
-	uint16_t cs;
-	uint16_t ss;
-	uint16_t ds;
+    uint16_t es;
+    uint16_t cs;
+    uint16_t ss;
+    uint16_t ds;
 
-	uint16_t fs; // added from 386
-	uint16_t gs; // added from 386
+    uint16_t fs; // added from 386
+    uint16_t gs; // added from 386
 
-	union{
-		uint32_t eip;
-		uint16_t ip[2];
-	};
-	union{
-		uint32_t eflags;
-		uint16_t flags[2];
-	};
+    union{
+        uint32_t eip;
+        uint16_t ip[2];
+    };
+    union{
+        uint32_t eflags;
+        uint16_t flags[2];
+    };
 
-	uint32_t cr[4];
-	uint32_t dr[8];
+    uint32_t cr[4];
+    uint32_t dr[8];
 
-	uint32_t tr6;
-	uint32_t tr7;
+    uint32_t tr6;
+    uint32_t tr7;
 
-	uint32_t gdtr_base;
-	uint32_t idtr_base;
+    uint32_t gdtr_base;
+    uint32_t idtr_base;
 
-	uint16_t gdtr_limit;
-	uint16_t idtr_limit;
+    uint16_t gdtr_limit;
+    uint16_t idtr_limit;
 
-	uint16_t ldtr;
-	uint16_t tr; // task register
+    uint16_t ldtr;
+    uint16_t tr; // task register
 
-	struct stDataDesc descc_es;
-	struct stCodeDesc descc_cs;
-	struct stDataDesc descc_ss;
-	struct stDataDesc descc_ds;
-	struct stDataDesc descc_fs;
-	struct stDataDesc descc_gs;
+    struct stDataDesc descc_es;
+    struct stCodeDesc descc_cs;
+    struct stDataDesc descc_ss;
+    struct stDataDesc descc_ds;
+    struct stDataDesc descc_fs;
+    struct stDataDesc descc_gs;
 
-	struct stRawSegmentDesc descc_ldt;	// cache of local descriptor
-	struct stRawSegmentDesc descc_tr;	// cache of task register
+    struct stRawSegmentDesc descc_ldt;   // cache of local descriptor
+    struct stRawSegmentDesc descc_tr;    // cache of task register
 
-	struct stTLB tlb[1<<TLB_ENTRY_BITS];
+    struct stTLB tlb[1<<TLB_ENTRY_BITS];
 
-	uint32_t fault;
-	uint32_t error_code;
-	uint8_t  cpl;
+    uint32_t fault;
+    uint32_t error_code;
+    uint8_t  cpl;
 
-	uint32_t current_eip;
-	uint16_t current_cs;
-	uint8_t fetchCache[2];
+    uint32_t current_eip;
+    uint16_t current_cs;
+    uint32_t current_esp;
+    uint8_t fetchCache[2];
 };
 
 enum eOpType {
-	OpTypeReg,
-	OpTypeSegReg,
-	OpTypeMemWithSeg,
-	OpTypeMemWithSeg_Reg
+    OpTypeReg,
+    OpTypeSegReg,
+    OpTypeMemWithSeg,
+    OpTypeMemWithSeg_Reg
 };
 
 struct stOpl{
-	enum eOpType type;
-	uint8_t  width; // 0: byte, 1:word
-	uint8_t  reg;
-	uint32_t addr;
+    enum eOpType type;
+    uint8_t  width; // 0: byte, 1:word
+    uint8_t  reg;
+    uint32_t addr;
 };
 
 struct periTimer{
-	uint8_t  control[3];
-	uint8_t  rwCount[3];
-	uint16_t counter[3];
-	uint16_t counter_shadow[3];
-	uint16_t dummy_counter[3];
+    uint8_t  control[3];
+    uint8_t  rwCount[3];
+    uint16_t counter[3];
+    uint16_t counter_shadow[3];
+    uint16_t dummy_counter[3];
 };
 
 struct periPIC{
-	uint8_t  acc_idx;
-	uint8_t  icw1;
-	uint8_t  icw2;
-	uint8_t  icw3;
-	uint8_t  icw4;
-	uint8_t  ocw1;
-	uint8_t  ocw2;
-	uint8_t  ocw3;
+    uint8_t  acc_idx;
+    uint8_t  icw1;
+    uint8_t  icw2;
+    uint8_t  icw3;
+    uint8_t  icw4;
+    uint8_t  ocw1;
+    uint8_t  ocw2;
+    uint8_t  ocw3;
 };
 
 struct periFDC{
-	uint8_t fifo[16];
-	uint8_t fifo_pointer;
-	uint8_t resp_len;
-	uint8_t resp_cnt;
-	uint8_t dor;
-	uint8_t busy;
-	uint8_t irq;
-	uint8_t cylinder;	 /* C */
-	uint8_t head;		 /* H */
-	uint8_t sector;		 /* R */
-	uint8_t sector_size; /* N */
+    uint8_t fifo[16];
+    uint8_t fifo_pointer;
+    uint8_t resp_len;
+    uint8_t resp_cnt;
+    uint8_t dor;
+    uint8_t busy;
+    uint8_t irq;
+    uint8_t cylinder;       /* C */
+    uint8_t head;           /* H */
+    uint8_t sector;         /* R */
+    uint8_t sector_size;    /* N */
 };
 
 struct periDMAC{
-	uint32_t addr[4];
-	uint8_t cnt[4];
+    uint32_t addr[4];
+    uint8_t cnt[4];
 };
 
 struct periDMAPageAddr{
-	uint8_t addr[8];
+    uint8_t addr[8];
 };
 
 #include <time.h>
 
 struct stIO_CMOS{
-	uint8_t reg_addr;
-	struct tm prevTM;
+    uint8_t reg_addr;
+    struct tm prevTM;
 };
 
 struct stIO_UART{
     int buffered;
-	uint8_t int_enable;
+    uint8_t int_enable;
     uint8_t buf[1];
-	uint8_t scratch;
-	uint8_t chkCntForInt;
+    uint8_t scratch;
+    uint8_t chkCntForInt;
 };
 
 struct stMemIORegion{
-	// watch address (disabled if watchAddr >= EMU_MEM_SIZE)
-	uint32_t watchAddr;
+    // watch address (disabled if watchAddr >= EMU_MEM_SIZE)
+    uint32_t watchAddr;
 
-	struct periTimer ioTimer;
-	struct periPIC ioPICmain;
-	struct periPIC ioPICsub;
+    struct periTimer ioTimer;
+    struct periPIC ioPICmain;
+    struct periPIC ioPICsub;
 
-	struct periFDC  ioFDC;
-	struct periDMAC ioDMAC;
-	struct periDMAPageAddr ioDMAPage;
-	struct stIO_CMOS ioCMOS;
-	struct stIO_UART ioUART0;
-	struct stIO_UART ioUART1;
+    struct periFDC  ioFDC;
+    struct periDMAC ioDMAC;
+    struct periDMAPageAddr ioDMAPage;
+    struct stIO_CMOS ioCMOS;
+    struct stIO_UART ioUART0;
+    struct stIO_UART ioUART1;
 
-	uint8_t ioSysCtrlA;
-	uint8_t ioSysCtrlB;
+    uint8_t ioSysCtrlA;
+    uint8_t ioSysCtrlB;
 
-	uint8_t a20m;
-	uint8_t enableOldIO;
+    uint8_t a20m;
+    uint8_t enableOldIO;
 
     uint8_t *mem;
 };
 
 struct stMachineState{
-	struct stEmuSetting  emu;
-	struct stReg reg;
-	struct stPrefix prefix;
-	struct stMemIORegion mem;
+    struct stEmuSetting  emu;
+    struct stReg reg;
+    struct stPrefix prefix;
+    struct stMemIORegion mem;
 };
 
 

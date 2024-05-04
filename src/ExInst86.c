@@ -171,6 +171,12 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
 }
 
 void enterINTwithECODE(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32_t eip, uint32_t error_code){
+
+    // Recover the ESP value.
+    // Note that a fault may occur after incrementing/decrementing ESP value, e.g., POP instruction.
+    // if( REG_ESP != pM->reg.current_esp ){ printf("[Simluator message] ESP value is recovered.\n"); }
+    REG_ESP = pM->reg.current_esp; // TODO: This may cause other faulty behaviors. Careful check is required.
+
     enterINT32(pM, int_num, cs, eip, /* enableErroCode?*/ 1, error_code, 0);
 }
 
@@ -364,6 +370,7 @@ int exMov(struct stMachineState *pM, uint32_t pointer){
         pOpSrc  = &opAcc;
     }else if( inst0 == 0x8e ){
         // TODO: the word size is 16-bit even if operand-size is 32-bit 
+        // segment reg <- r/m16
         size =  decode_mod_rm    (pM,  pointer+1, INST_W_WORDACC, &op1);
         val  =  decode_segReg3bit(pM,  pointer+1, &op2);
         if( val ) return EX_RESULT_UNKNOWN;
@@ -373,6 +380,7 @@ int exMov(struct stMachineState *pM, uint32_t pointer){
         pOpSrc  = &op1;
     }else if( inst0 == 0x8c ){
         // TODO: the word size is 16-bit even if operand-size is 32-bit 
+        // r16/r32/m16 <- segment reg
         size =  decode_mod_rm(pM,  pointer+1, INST_W_WORDACC, &op1);
         val  =  decode_segReg3bit(pM,  pointer+1, &op2);
         if( val ) return EX_RESULT_UNKNOWN;
@@ -394,11 +402,21 @@ int exMov(struct stMachineState *pM, uint32_t pointer){
         EXI_LOG_PRINTF("\n");
     }
 
-    if( inst0 == 0x8e || inst0 == 0x8c ){
-        // target is a 16-bit segment register
+    // Fetch the source value
+    if( inst0 == 0x8e ){
+        // moving a value to a segment reg should be done in 16-bit
         PREFIX_OP32 = 0;
     }
-    writeOpl( pM,  pOpDest, (pOpSrc==NULL) ? val : readOpl(pM,  pOpSrc) );
+    val = (pOpSrc==NULL) ? val : readOpl(pM,  pOpSrc);
+    PREFIX_OP32 = data32;
+
+
+    // Write the value to the destination
+    if( (inst0 == 0x8c) && pOpDest->type == OpTypeMemWithSeg ){
+        // moving a segment reg value to memory should be done in 16-bit
+        PREFIX_OP32 = 0;
+    }
+    writeOpl( pM,  pOpDest, val);
     PREFIX_OP32 = data32;
 
     return EX_RESULT_SUCCESS;
@@ -417,7 +435,7 @@ int exPUSH(struct stMachineState *pM, uint32_t pointer){
 
     The PUSH ESP instruction pushes the value of the ESP register as it existed before the instruction was executed.
     If a PUSH instruction uses a memory operand in which the ESP register is used for computing the operand address, 
-    the address of the operand is computed before the ESP register is decremented.    
+    the address of the operand is computed beffore the ESP register is decremented.    
 
     from https://www.felixcloutier.com/x86/push.html
      ----------------------------------------------------------------- */
@@ -467,6 +485,11 @@ int exPOP(struct stMachineState *pM, uint32_t pointer){
 
 
     if( inst0 == 0x8f && (inst1 & 0x38) == 0x00 ){
+        // Warning: The following line may cause a PAGE FAULT! because "decode_mod_rm" may load a immidiate value from memory.
+        // In such case, the program execution jumps to a simulator function calling a (guest) fault handler with a wrong (E)SP value 
+        // and re-execution of this instruction after the handler will result in a wrong (E)SP value.
+        // The original ESP value is saved in "current_esp" variable at mainloop and is recovered at "enterINTwithECODE".
+
         size = decode_mod_rm(pM,  pointer+1, INST_W_WORDACC, &op);
     }else if( (inst0&0xf8) == 0x58 ){
         decode_reg1(pM, pointer+0, INST_W_WORDACC, &op);
@@ -1368,7 +1391,7 @@ int exDASAAS(struct stMachineState *pM, uint32_t pointer){
     UPDATE_IP(1);
 
     if(inst0 == 0x2F){
-    	if(DEBUG) EXI_LOG_PRINTF("DAS\n"); 
+        if(DEBUG) EXI_LOG_PRINTF("DAS\n"); 
 
         old_al = ((REG_AX)  & 0xff);
         old_cf =((REG_FLAGS & (1<<FLAGS_BIT_CF)) ? 1 : 0);
@@ -1399,7 +1422,7 @@ int exDASAAS(struct stMachineState *pM, uint32_t pointer){
         else                   REG_FLAGS &=~(1<<FLAGS_BIT_PF);
 
     }else if(inst0 == 0x3F){
-    	if(DEBUG){ 
+        if(DEBUG){ 
             EXI_LOG_PRINTF("AAS\n");
         }
         if( (REG_AX & 0xf) > 9 || (REG_FLAGS & (1<<FLAGS_BIT_AF))  ){
@@ -1424,18 +1447,18 @@ int exAADAAM(struct stMachineState *pM, uint32_t pointer){
 
     if( inst0 != 0xD5 && inst0 != 0xd4 ) return EX_RESULT_UNKNOWN;
 
-	decode_imm(pM, pointer+1, INST_W_BYTEACC, &val, INST_S_NOSIGNEX);
+    decode_imm(pM, pointer+1, INST_W_BYTEACC, &val, INST_S_NOSIGNEX);
     UPDATE_IP(2);
 
     if(inst0 == 0xd5){
-    	if(DEBUG) EXI_LOG_PRINTF("AAD %x\n", val); 
+        if(DEBUG) EXI_LOG_PRINTF("AAD %x\n", val); 
 
-    	REG_AX  = ((REG_AX>>8)&0xff) * val + (REG_AX & 0xff);
-    	REG_AX &= 0xff;
+        REG_AX  = ((REG_AX>>8)&0xff) * val + (REG_AX & 0xff);
+        REG_AX &= 0xff;
 
         al = REG_AX;
     }else if(inst0 == 0xd4){
-    	if(DEBUG){ 
+        if(DEBUG){ 
             EXI_LOG_PRINTF("AAM %x\n", val);
             if(val!=10) EXI_LOG_PRINTF("AAM without 0xa value (%x) at [%x:%x]\n", val, REG_CS, REG_EIP-2);
         }
@@ -1446,9 +1469,9 @@ int exAADAAM(struct stMachineState *pM, uint32_t pointer){
         }
 
         al = (REG_AX & 0xff);
-    	REG_AX = ((al / val)<<8);  // AH
+        REG_AX = ((al / val)<<8);  // AH
         al = al % val;
-    	REG_AX|= al;  // AL
+        REG_AX|= al;  // AL
     }
 
     if(al == 0) REG_FLAGS |= (1<<FLAGS_BIT_ZF);
@@ -2047,7 +2070,7 @@ int exCALL(struct stMachineState *pM, uint32_t pointer){
     }else if( inst0 == 0xff && (inst1 & 0x38) == 0x10 ){
         // Indirect within segment
         size = decode_mod_rm(pM,  pointer+1, INST_W_WORDACC, &op);
-        uint32_t new_ip = readOpl(pM,  &op);
+        uint32_t new_ip = readOpl(pM,  &op); // read the destination at first, then push (E)IP
         if(PREFIX_OP32){ 
             REG_EIP += (1+size); 
             PUSH_TO_STACK( REG_EIP );
@@ -2586,7 +2609,7 @@ int exIRET(struct stMachineState *pM, uint32_t pointer){
     int goOuter = 0;
 
     if( inst0  != 0xcf ) return EX_RESULT_UNKNOWN; 
-	if( DEBUG ) EXI_LOG_PRINTF("IRET\n");
+    if( DEBUG ) EXI_LOG_PRINTF("IRET\n");
 
     //--------------------------------------------
     // Processing for real and virtual 8086 modes
