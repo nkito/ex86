@@ -14,13 +14,13 @@ uint8_t calcParityByte(uint8_t val){
 }
 
 static void updateFlags_OSZPC(struct stMachineState *pM, uint16_t of, uint16_t sf, uint16_t zf, uint16_t pf, uint16_t cf){
-	REG_FLAGS &= ~((1<<FLAGS_BIT_OF) | (1<<FLAGS_BIT_SF) | (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_CF));
-	REG_FLAGS |= ((of<<FLAGS_BIT_OF) |(sf<<FLAGS_BIT_SF) |(zf<<FLAGS_BIT_ZF) |(pf<<FLAGS_BIT_PF) |(cf<<FLAGS_BIT_CF));
+    REG_FLAGS &= ~((1<<FLAGS_BIT_OF) | (1<<FLAGS_BIT_SF) | (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_CF));
+    REG_FLAGS |= ((of<<FLAGS_BIT_OF) |(sf<<FLAGS_BIT_SF) |(zf<<FLAGS_BIT_ZF) |(pf<<FLAGS_BIT_PF) |(cf<<FLAGS_BIT_CF));
 }
 
 static void updateFlags_OSZAPC(struct stMachineState *pM, uint16_t of, uint16_t sf, uint16_t zf, uint16_t af, uint16_t pf, uint16_t cf){
-	REG_FLAGS &= ~((1<<FLAGS_BIT_OF) | (1<<FLAGS_BIT_SF) | (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_AF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_CF));
-	REG_FLAGS |= ((of<<FLAGS_BIT_OF) |(sf<<FLAGS_BIT_SF) |(zf<<FLAGS_BIT_ZF) |(af<<FLAGS_BIT_AF) |(pf<<FLAGS_BIT_PF) |(cf<<FLAGS_BIT_CF));
+    REG_FLAGS &= ~((1<<FLAGS_BIT_OF) | (1<<FLAGS_BIT_SF) | (1<<FLAGS_BIT_ZF) | (1<<FLAGS_BIT_AF) | (1<<FLAGS_BIT_PF) | (1<<FLAGS_BIT_CF));
+    REG_FLAGS |= ((of<<FLAGS_BIT_OF) |(sf<<FLAGS_BIT_SF) |(zf<<FLAGS_BIT_ZF) |(af<<FLAGS_BIT_AF) |(pf<<FLAGS_BIT_PF) |(cf<<FLAGS_BIT_CF));
 }
 
 uint32_t ALUOPAdd(struct stMachineState *pM, uint32_t op1, uint32_t op2, int isWord){

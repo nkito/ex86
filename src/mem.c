@@ -200,7 +200,7 @@ fault_pf:
 
 uint32_t fetchCodeDataDoubleWord(struct stMachineState *pM, uint32_t addr){
     if( MODE_PROTECTED32 && (addr < (REG_CS_BASE+pM->reg.descc_cs.limit_min) || addr+3 > (REG_CS_BASE+pM->reg.descc_cs.limit_max)) ){
-    	logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
+        logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
         addr, pM->reg.descc_cs.limit_min, pM->reg.descc_cs.limit_max, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
         ENTER_GP(0);
     }
@@ -239,7 +239,7 @@ uint32_t fetchCodeDataDoubleWord(struct stMachineState *pM, uint32_t addr){
 
 uint16_t fetchCodeDataWord(struct stMachineState *pM, uint32_t addr){
     if( MODE_PROTECTED32 && (addr < (REG_CS_BASE+pM->reg.descc_cs.limit_min) || addr+1 > (REG_CS_BASE+pM->reg.descc_cs.limit_max)) ){
-    	logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
+        logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
         addr, pM->reg.descc_cs.limit_min, pM->reg.descc_cs.limit_max, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
         ENTER_GP(0);
     }
@@ -268,7 +268,7 @@ uint16_t fetchCodeDataWord(struct stMachineState *pM, uint32_t addr){
 
 uint8_t fetchCodeDataByte(struct stMachineState *pM, uint32_t addr){
     if( MODE_PROTECTED32 && (addr < (REG_CS_BASE+pM->reg.descc_cs.limit_min) || addr > (REG_CS_BASE+pM->reg.descc_cs.limit_max)) ){
-    	logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
+        logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
         addr, pM->reg.descc_cs.limit_min, pM->reg.descc_cs.limit_max, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
         ENTER_GP(0);
     }

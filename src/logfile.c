@@ -32,8 +32,8 @@ void logfile_close(void){
 }
 
 void logfile_printf(unsigned int loglevel, const char *format, ... ){
-	va_list ap;
-	time_t  t;
+    va_list ap;
+    time_t  t;
     struct tm *tmp;
 
     if(fp_logfile == NULL) return;
@@ -45,14 +45,14 @@ void logfile_printf(unsigned int loglevel, const char *format, ... ){
     time(&t);
     tmp = localtime(&t);
 
-	va_start(ap, format);
+    va_start(ap, format);
     fprintf(fp_logfile, "[%d/%02d/%02d %02d:%02d:%02d |%x] ", 1900 + tmp->tm_year, tmp->tm_mon+1, tmp->tm_mday, tmp->tm_hour, tmp->tm_min, tmp->tm_sec, (loglevel & LOGLV_MASK));
-	vfprintf(fp_logfile, format, ap);
-	va_end(ap);
+    vfprintf(fp_logfile, format, ap);
+    va_end(ap);
 }
 
 void logfile_printf_without_header(unsigned int loglevel, const char *format, ... ){
-	va_list ap;
+    va_list ap;
 
     if(fp_logfile == NULL) return;
     if( !DEBUG ){
@@ -60,8 +60,8 @@ void logfile_printf_without_header(unsigned int loglevel, const char *format, ..
         if( (loglevel & LOGLV_MASK) < lowerlevel ) return;
     }
 
-	va_start(ap, format);
-	vfprintf(fp_logfile, format, ap);
-	va_end(ap);
+    va_start(ap, format);
+    vfprintf(fp_logfile, format, ap);
+    va_end(ap);
 }
 

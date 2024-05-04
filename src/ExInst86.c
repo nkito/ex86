@@ -435,7 +435,7 @@ int exPUSH(struct stMachineState *pM, uint32_t pointer){
 
     The PUSH ESP instruction pushes the value of the ESP register as it existed before the instruction was executed.
     If a PUSH instruction uses a memory operand in which the ESP register is used for computing the operand address, 
-    the address of the operand is computed beffore the ESP register is decremented.    
+    the address of the operand is computed before the ESP register is decremented.    
 
     from https://www.felixcloutier.com/x86/push.html
      ----------------------------------------------------------------- */

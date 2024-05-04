@@ -428,9 +428,9 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
         if( funct == 2 ){
             struct stRawSegmentDesc RS;
 
-	        if( pM->reg.cpl != 0 ){
-        		ENTER_GP(0);
-        	}
+            if( pM->reg.cpl != 0 ){
+                ENTER_GP(0);
+            }
 
             if( segval >= pM->reg.gdtr_limit ){
                 logfile_printf(LOGCAT_CPU_EXE | LOGLV_ERROR, "LLDT : the ldtr (=0x%x) is out of GDTR limit. (pointer: %x)\n", segval, pointer);
@@ -454,8 +454,8 @@ int exLSDesc(struct stMachineState *pM, uint32_t pointer){
             EXI_LOG_PRINTF("LTR 0x%02x (pointer: %x)\n", segval, pointer);
 
             if( pM->reg.cpl != 0 ){
-        		ENTER_GP(0);
-        	}
+                ENTER_GP(0);
+            }
             struct stRawSegmentDesc RS;
             // Set busy bit
             loadTaskRegister(pM, segval, &RS, 1, 0);
