@@ -2006,7 +2006,7 @@ static int exCALL_interSegment(struct stMachineState *pM, uint32_t pointer, uint
         REG_FLAGS |= (1<<FLAGS_BIT_NT);
 
     }else if( SEGACCESS_IS_CALLGATE32(access) ){
-        logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "LJMP %x:%x   (TRAPGATE, %x)\n", seg, offset, pointer);
+        logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "CALL %x:%x   (TRAPGATE, %x)\n", seg, offset, pointer);
         return EX_RESULT_UNKNOWN;
     }else{
         if( !SEGACCESS_IS_CSEG(access) ){

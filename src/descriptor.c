@@ -98,7 +98,7 @@ void loadDataSegmentDesc(struct stMachineState *pM, uint16_t selector, struct st
     struct stRawSegmentDesc RS;
     uint8_t RPL = (selector & 3);
 
-    if( RPL < pM->reg.cpl ){
+    if( (selector >= 4) && (RPL < pM->reg.cpl) ){
         logfile_printf(LOGCAT_CPU_MEM | LOGLV_NOTICE, "%s: CPL %x -> %x (CS:EIP=%x:%x pointer %x)\n", __func__, pM->reg.cpl, RPL, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);
     }
 

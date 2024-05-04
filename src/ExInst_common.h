@@ -44,6 +44,12 @@
 #define REG_CR2   (pM->reg.cr[2])
 #define REG_CR3   (pM->reg.cr[3])
 
+#define REG_DR0   (pM->reg.dr[0])
+#define REG_DR1   (pM->reg.dr[1])
+#define REG_DR2   (pM->reg.dr[2])
+#define REG_DR3   (pM->reg.dr[3])
+#define REG_DR6   (pM->reg.dr[6])
+#define REG_DR7   (pM->reg.dr[7])
 
 #define REG_IP     (pM->reg.ip[FIRST_WORD_IDX_IN_DWORD])
 #define REG_EIP    (pM->reg.eip)
@@ -126,10 +132,11 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
 #define PUSH_TO_STACK(x) do{                                                                      \
     if( MODE_PROTECTED32 ){                                                                       \
         uint32_t decl = (pM->prefix.data32) ? 4 : 2;                                              \
-        uint32_t __tmp_sp = (pM->reg.descc_ss.big) ? REG_ESP-decl : (REG_SP-decl)&0xffff;\
-        if( pM->reg.cpl > (REG_SS & 3) || __tmp_sp < pM->reg.descc_ss.limit_min || __tmp_sp > pM->reg.descc_ss.limit_max ){ \
-            __SEG_ERR_MSG("SS", __tmp_sp, pM->reg.descc_ss.limit_min, pM->reg.descc_ss.limit_max);             \
-            DEBUG=1; ENTER_SS(0);                                                                 \
+        uint32_t __sp_min = (pM->reg.descc_ss.big) ? REG_ESP-decl : (REG_SP-decl)&0xffff;         \
+        uint32_t __sp_max = (pM->reg.descc_ss.big) ? REG_ESP-   1 : (REG_SP-   1)&0xffff;         \
+        if( pM->reg.cpl > (REG_SS & 3) || __sp_min < pM->reg.descc_ss.limit_min || __sp_max > pM->reg.descc_ss.limit_max ){ \
+            __SEG_ERR_MSG("SS", __sp_min, pM->reg.descc_ss.limit_min, pM->reg.descc_ss.limit_max);\
+            ENTER_SS(0);                                                                 \
         }                                                                                         \
     }                                                                                             \
     if(! pM->prefix.data32){                                                                      \
@@ -142,39 +149,34 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
             if(pM->reg.descc_ss.big){ REG_ESP-=2; }else{ REG_SP-=2; }                             \
         }                                                                                         \
     }else{                                                                                        \
-        if( MODE_PROTECTED32 ){ \
-            if( (  pM->reg.descc_ss.big  && (REG_ESP-4 < pM->reg.descc_ss.limit_min || REG_ESP-1 > pM->reg.descc_ss.limit_max)) || \
-                ((!pM->reg.descc_ss.big) && (REG_SP-4  < pM->reg.descc_ss.limit_min || REG_SP-1  > pM->reg.descc_ss.limit_max)) ){ \
-                    printf("<%x %x %x %x %x>", pM->reg.descc_ss.big, REG_ESP, REG_SS_BASE, pM->reg.descc_ss.limit_min, pM->reg.descc_ss.limit_max);  \
-                    ENTER_SS(0); \
-            } \
-        } \
         uint32_t __tmp_sp4 = (pM->reg.descc_ss.big) ? REG_ESP-4 : ((REG_SP-4)&0xffff);            \
         writeDataMemDoubleWord(pM, REG_SS_BASE + __tmp_sp4, (x));                                 \
         if(pM->reg.descc_ss.big){ REG_ESP-=4; }else{ REG_SP-=4; }                                 \
     }                                                                                             \
 }while(0)
 
-#define POP_FROM_STACK(x) do{                                                                                \
-    if(! pM->prefix.data32){                                                                                 \
-        if( pM->emu.emu_cpu == EMU_CPU_8086 || pM->emu.emu_cpu == EMU_CPU_80186 ){                           \
-            (x) = readDataMemWord(pM, REG_SS_BASE + REG_SP);                                                 \
-            REG_SP+=2;                                                                                       \
-        }else{                                                                                               \
-            (x) = readDataMemWord(pM, REG_SS_BASE + ((pM->reg.descc_ss.big) ? REG_ESP : REG_SP));   \
-            if(pM->reg.descc_ss.big){ REG_ESP+=2; }else{ REG_SP+=2; }                               \
-        }                                                                                                    \
-    }else{                                                                                                   \
-        if( MODE_PROTECTED32 ){ \
-            if( (  pM->reg.descc_ss.big  && (REG_ESP < pM->reg.descc_ss.limit_min || REG_ESP+3 > pM->reg.descc_ss.limit_max)) || \
-                ((!pM->reg.descc_ss.big) && (REG_SP  < pM->reg.descc_ss.limit_min || REG_SP +3 > pM->reg.descc_ss.limit_max)) ){ \
-                    printf("<%x %x %x %x %x>", pM->reg.descc_ss.big, REG_ESP, REG_SS_BASE, pM->reg.descc_ss.limit_min, pM->reg.descc_ss.limit_max);  \
-                    ENTER_SS(0); \
-            } \
-        } \
-        (x) = readDataMemDoubleWord(pM, REG_SS_BASE + ((pM->reg.descc_ss.big) ? REG_ESP : REG_SP)); \
-        if(pM->reg.descc_ss.big){ REG_ESP+=4; }else{ REG_SP+=4; }                                   \
-    }                                                                                                        \
+#define POP_FROM_STACK(x) do{                                                                     \
+    if( MODE_PROTECTED32 ){                                                                       \
+        uint32_t incl = (pM->prefix.data32) ? 4 : 2;                                              \
+        uint32_t __sp_min = (pM->reg.descc_ss.big) ? REG_ESP      : ((REG_SP     )&0xffff);       \
+        uint32_t __sp_max = (pM->reg.descc_ss.big) ? REG_ESP+incl : ((REG_SP+incl)&0xffff);       \
+        if( pM->reg.cpl > (REG_SS & 3) || __sp_min < pM->reg.descc_ss.limit_min || __sp_max > pM->reg.descc_ss.limit_max ){ \
+            __SEG_ERR_MSG("SS", __sp_max, pM->reg.descc_ss.limit_min, pM->reg.descc_ss.limit_max);\
+            ENTER_SS(0);                                                                          \
+        }                                                                                         \
+    }                                                                                             \
+    if(! pM->prefix.data32){                                                                      \
+        if( pM->emu.emu_cpu == EMU_CPU_8086 || pM->emu.emu_cpu == EMU_CPU_80186 ){                \
+            (x) = readDataMemWord(pM, REG_SS_BASE + REG_SP);                                      \
+            REG_SP+=2;                                                                            \
+        }else{                                                                                    \
+            (x) = readDataMemWord(pM, REG_SS_BASE + ((pM->reg.descc_ss.big) ? REG_ESP : REG_SP)); \
+            if(pM->reg.descc_ss.big){ REG_ESP+=2; }else{ REG_SP+=2; }                             \
+        }                                                                                         \
+    }else{                                                                                        \
+        (x)= readDataMemDoubleWord(pM, REG_SS_BASE + ((pM->reg.descc_ss.big) ? REG_ESP : REG_SP));\
+        if(pM->reg.descc_ss.big){ REG_ESP+=4; }else{ REG_SP+=4; }                                 \
+    }                                                                                             \
 }while(0)
 
 
