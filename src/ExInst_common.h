@@ -157,7 +157,7 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
 
 #define POP_FROM_STACK(x) do{                                                                     \
     if( MODE_PROTECTED32 ){                                                                       \
-        uint32_t incl = (pM->prefix.data32) ? 4 : 2;                                              \
+        uint32_t incl = (pM->prefix.data32) ? 3 : 1;                                              \
         uint32_t __sp_min = (pM->reg.descc_ss.big) ? REG_ESP      : ((REG_SP     )&0xffff);       \
         uint32_t __sp_max = (pM->reg.descc_ss.big) ? REG_ESP+incl : ((REG_SP+incl)&0xffff);       \
         if( pM->reg.cpl > (REG_SS & 3) || __sp_min < pM->reg.descc_ss.limit_min || __sp_max > pM->reg.descc_ss.limit_max ){ \
