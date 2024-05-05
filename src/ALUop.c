@@ -120,6 +120,9 @@ Note:
   op3 should be 0 or 1
 */
 uint32_t ALUOPAdd3(struct stMachineState *pM, uint32_t op1, uint32_t op2, uint32_t op3, int isWord){
+    if(!isWord)                  { op1 &=   0xff; op2 &=   0xff; }
+    else if(! pM->prefix.data32 ){ op1 &= 0xffff; op2 &= 0xffff; }
+
     uint32_t result_msb2;
     uint32_t result32 = op1 + op2 + op3;
     uint16_t result   = result32;
@@ -134,6 +137,7 @@ uint32_t ALUOPAdd3(struct stMachineState *pM, uint32_t op1, uint32_t op2, uint32
             result_msb2 = (op1&0x7fffffff) + (op2&0x7fffffff) + (op3&0x7fffffff);
 
             if( result32 < op1 || result32 < op2 || result32 < op3 ) carry = 1;
+            if( (op1&op2) == 0xffffffff && op3 == 1                ) carry = 1;  /* Special case!!!  0xffffffff + 0xffffffff + 1 = 0x1ffffffff */
             if( (!carry && ((result_msb2&0x80000000) !=0)) ||
                 ( carry && ((result_msb2&0x80000000) ==0)) ) ovf = 1;
             if( result32&(1<<31) ) sign  = 1;
@@ -168,6 +172,9 @@ uint32_t ALUOPAdd3(struct stMachineState *pM, uint32_t op1, uint32_t op2, uint32
 }
 
 uint32_t ALUOPSub3(struct stMachineState *pM, uint32_t op1, uint32_t op2, uint32_t op3, int isWord){
+    if(!isWord)                  { op1 &=   0xff; op2 &=   0xff; }
+    else if(! pM->prefix.data32 ){ op1 &= 0xffff; op2 &= 0xffff; }
+
     uint32_t nop2= -op2;
     uint32_t xor = (op1 ^ (op3 ? (~op2) : (nop2)));
 
