@@ -32,8 +32,11 @@
 #define SEGACCESS_IS_TSS32(x)               (((x)&0x1d) == SYSDESC_TYPE_TSS32_AVAIL)
 #define SEGACCESS_IS_TSS32_AVAIL(x)         (((x)&0x1f) == SYSDESC_TYPE_TSS32_AVAIL)
 #define SEGACCESS_IS_TSS32_BUSY(x)          (((x)&0x1f) == SYSDESC_TYPE_TSS32_BUSY)
+#define SEGACCESS_IS_CALLGATE16(x)          (((x)&0x1f) == SYSDESC_TYPE_CALLGATE16)
 #define SEGACCESS_IS_CALLGATE32(x)          (((x)&0x1f) == SYSDESC_TYPE_CALLGATE32)
+#define SEGACCESS_IS_INTGATE16(x)           (((x)&0x1f) == SYSDESC_TYPE_INTGATE16)
 #define SEGACCESS_IS_INTGATE32(x)           (((x)&0x1f) == SYSDESC_TYPE_INTGATE32)
+#define SEGACCESS_IS_TRAPGATE16(x)          (((x)&0x1f) == SYSDESC_TYPE_TRAPGATE16)
 #define SEGACCESS_IS_TRAPGATE32(x)          (((x)&0x1f) == SYSDESC_TYPE_TRAPGATE32)
 
 
@@ -82,6 +85,7 @@ int  readTSSIOMapBit     (struct stMachineState *pM, uint16_t ioaddr);
 
 // Functions for gate descriptors (Call, Trap, Interrupt, Task gates)
 void loadIntDesc   (struct stMachineState *pM, uint8_t   int_num, struct stGateDesc *pID);
+void loadGateDesc(struct stMachineState *pM, uint16_t selector, struct stGateDesc *pGD);
 
 int getDescType(struct stMachineState *pM, uint16_t selector, uint8_t *pAccess);
 

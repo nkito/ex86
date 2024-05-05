@@ -497,8 +497,8 @@ void writeDataMemWord(struct stMachineState *pM, uint32_t addr, uint16_t data){
 
     if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
         if( (addr & 0xfff) + 1 >= 0x1000 ){
-            writeDataMemByte(pM, addr+0, data&0xff);
             writeDataMemByte(pM, addr+1, data>>8);
+            writeDataMemByte(pM, addr+0, data&0xff);
             return;
         }
         addr = getPhysFromLinear(pM, addr, 0, pM->reg.cpl); // write access, privilege level = CPL
@@ -528,8 +528,8 @@ void writeDataMemDoubleWord(struct stMachineState *pM, uint32_t addr, uint32_t d
 
     if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
         if( (addr & 0xfff) + 3 >= 0x1000 ){
-            writeDataMemWord(pM, addr+0,  data     &0xffff);
             writeDataMemWord(pM, addr+2, (data>>16)&0xffff);
+            writeDataMemWord(pM, addr+0,  data     &0xffff);
             return;
         }
 

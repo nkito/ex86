@@ -245,16 +245,16 @@ static void writeBackDWtoMem(struct stMachineState *pM, uint32_t addr, uint32_t 
 static uint32_t readDWfromMem(struct stMachineState *pM, uint32_t addr){
     uint32_t result;
     result =  readDataMemByteAsSV(pM, addr+0);
-    result |= (readDataMemByteAsSV(pM, addr+1) << 8);
-    result |= (readDataMemByteAsSV(pM, addr+2) <<16);
-    result |= (readDataMemByteAsSV(pM, addr+3) <<24);
+    result |= (((uint32_t)readDataMemByteAsSV(pM, addr+1)) << 8);
+    result |= (((uint32_t)readDataMemByteAsSV(pM, addr+2)) <<16);
+    result |= (((uint32_t)readDataMemByteAsSV(pM, addr+3)) <<24);
     return result;
 }
 
 static uint16_t readWordFromMem(struct stMachineState *pM, uint32_t addr){
     uint16_t result;
     result =  readDataMemByteAsSV(pM, addr+0);
-    result |= (readDataMemByteAsSV(pM, addr+1) << 8);
+    result |= (((uint16_t)readDataMemByteAsSV(pM, addr+1)) << 8);
     return result;
 }
 
@@ -422,7 +422,37 @@ void loadIntDesc(struct stMachineState *pM, uint8_t int_num, struct stGateDesc *
     pGD->offset |= ((uint32_t)readDataMemByteAsSV(pM, pointer+7))<<24;
 
     pGD->access = readDataMemByteAsSV(pM, pointer+5);
+    pGD->len    = 0; // unused
 }
+
+void loadGateDesc(struct stMachineState *pM, uint16_t selector, struct stGateDesc *pGD){
+    uint32_t base  = ((selector & 0x4) ? pM->reg.descc_ldt.base  : pM->reg.gdtr_base );
+    uint32_t limit = ((selector & 0x4) ? pM->reg.descc_ldt.limit : pM->reg.gdtr_limit);
+
+    uint16_t selector_body = (selector & (~7));
+
+    if( selector < 4 ){
+        ENTER_GP( 0 );
+    }
+
+    if( selector_body+7 > limit ){
+        ENTER_GP( ECODE_SEGMENT_GDT_LDT(selector) );
+    }
+
+    uint32_t pointer = base + selector_body;
+
+    pGD->selector  = readDataMemByteAsSV(pM, pointer+2);
+    pGD->selector |= ((uint32_t) readDataMemByteAsSV(pM, pointer+3)) << 8;
+
+    pGD->offset  = readDataMemByteAsSV(pM, pointer+0);
+    pGD->offset |= ((uint32_t)readDataMemByteAsSV(pM, pointer+1))<< 8;
+    pGD->offset |= ((uint32_t)readDataMemByteAsSV(pM, pointer+6))<<16;
+    pGD->offset |= ((uint32_t)readDataMemByteAsSV(pM, pointer+7))<<24;
+
+    pGD->len    = readDataMemByteAsSV(pM, pointer+4);
+    pGD->access = readDataMemByteAsSV(pM, pointer+5);
+}
+
 
 /**
  * Fetch a type field in a descriptor pointed by a selector.

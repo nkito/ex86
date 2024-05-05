@@ -51,8 +51,6 @@ struct stGateDesc{
     uint16_t selector;
     uint8_t access;
     uint8_t len;
-
-    uint8_t DPL;
 };
 
 struct stDataDesc{
@@ -194,6 +192,7 @@ struct stReg{
     uint32_t current_eip;
     uint16_t current_cs;
     uint32_t current_esp;
+	uint32_t current_eflags;
     uint8_t fetchCache[2];
 };
 
