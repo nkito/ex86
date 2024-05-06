@@ -177,6 +177,12 @@ void enterINTwithECODE(struct stMachineState *pM, uint16_t int_num, uint16_t cs,
     // if( REG_ESP != pM->reg.current_esp ){ printf("[Simluator message] ESP value is recovered.\n"); }
     REG_ESP = pM->reg.current_esp; // TODO: This may cause other faulty behaviors. Careful check is required.
 
+    if( REG_EFLAGS != pM->reg.current_eflags ){
+        // REG_EFLAGS= pM->reg.current_eflags;
+        logfile_printf((LOGCAT_CPU_EXE | LOGLV_WARNING), "Warning : modified EFLAGS is detected in a entry point of fault processing at SS:ESP=%x:%x. EFLAGS: %x -> %x.\n", pM->reg.current_cs, pM->reg.current_eip, pM->reg.current_eflags, REG_EFLAGS);
+        logfile_printf((LOGCAT_CPU_EXE | LOGLV_WARNING), "          instruction cache %x %x \n", pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
+    }
+
     enterINT32(pM, int_num, cs, eip, /* enableErroCode?*/ 1, error_code, 0);
 }
 
@@ -2006,7 +2012,88 @@ static int exCALL_interSegment(struct stMachineState *pM, uint32_t pointer, uint
         REG_FLAGS |= (1<<FLAGS_BIT_NT);
 
     }else if( SEGACCESS_IS_CALLGATE32(access) ){
-        logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "CALL %x:%x   (TRAPGATE, %x)\n", seg, offset, pointer);
+        logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "CALL %x:%x   (CALLGATE32, %x)\n", seg, offset, pointer);
+
+        PREFIX_OP32 = 1;
+        PREFIX_AD32 = 1;
+
+        struct stGateDesc CG;
+        struct stRawSegmentDesc RS;
+
+        uint8_t CPL = pM->reg.cpl;
+        uint8_t DPL = SEGACCESS_DPL(access);
+
+        logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "test1 \n");
+
+        if( (DPL < CPL) || (DPL < (seg&3)) ){
+            ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
+        }
+
+        if( ! (access & SEGACCESS_PRESENT) ){
+            ENTER_NP( ECODE_SEGMENT_GDT_LDT(seg) );
+        }
+
+        loadGateDesc(pM, seg, &CG);
+        loadRawSegmentDesc(pM, CG.selector, &RS);
+
+        uint8_t DPLC= SEGACCESS_DPL(RS.access);
+
+        if( (!SEGACCESS_IS_CSEG(RS.access)) || (DPLC > CPL) ){
+            ENTER_GP( ECODE_SEGMENT_GDT_LDT_EXT(CG.selector) );
+        }
+
+        if( 0 == (RS.access & SEGACCESS_PRESENT) ){
+            ENTER_NP( ECODE_SEGMENT_GDT_LDT_EXT(CG.selector) );
+        }
+
+        uint32_t stack_top = pM->reg.descc_ss.base + REG_ESP;
+
+        if( (!SEGACCESS_CSEG_IS_CONFORMING(RS.access)) && DPLC < CPL ){
+            uint32_t new_esp, old_esp;
+            uint16_t new_ss,  old_ss;
+
+            uint32_t TSSbase     = pM->reg.descc_tr.base;
+            uint32_t TSS_SP_base = TSSbase + 4 + (DPLC * 8);
+
+            new_esp  = readDataMemByteAsSV(pM, TSS_SP_base);
+            new_esp |= ((uint32_t)readDataMemByteAsSV(pM, TSS_SP_base + 1))<< 8;
+            new_esp |= ((uint32_t)readDataMemByteAsSV(pM, TSS_SP_base + 2))<<16;
+            new_esp |= ((uint32_t)readDataMemByteAsSV(pM, TSS_SP_base + 3))<<24;
+
+            new_ss  = readDataMemByteAsSV(pM, TSS_SP_base + 4);
+            new_ss |= ((uint16_t) readDataMemByteAsSV(pM, TSS_SP_base + 5))<< 8;
+
+            old_ss  = REG_SS;
+            old_esp = REG_ESP;
+
+            CG.selector &= (~3);
+            CG.selector |= DPLC;
+
+            // without this line, access violation occurs
+            pM->reg.cpl = DPLC;
+
+            updateSegReg(pM, SEGREG_NUM_SS, new_ss);
+            REG_ESP = new_esp;
+
+            PUSH_TO_STACK( old_ss );
+            PUSH_TO_STACK( old_esp  );
+        }
+
+        for(int t=0; t < CG.len; t++){
+            // TODO: check this code !!!
+            uint32_t arg = readDataMemDoubleWord(pM, stack_top - 4 - 4*t);
+            logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "Args: 0x%x/0x%x \n", arg, RS.access);
+            PUSH_TO_STACK( arg );
+        }
+
+        PUSH_TO_STACK( REG_CS  );
+        PUSH_TO_STACK( REG_EIP );
+
+        updateSegReg(pM, SEGREG_NUM_CS, CG.selector);
+        REG_EIP = CG.offset;
+
+    }else if( SEGACCESS_IS_CALLGATE16(access) ){
+        logfile_printf_without_header((LOGCAT_CPU_EXE | LOGLV_ERROR), "CALL %x:%x   (CALLGATE16, %x)\n", seg, offset, pointer);
         return EX_RESULT_UNKNOWN;
     }else{
         if( !SEGACCESS_IS_CSEG(access) ){
@@ -2565,8 +2652,8 @@ int exIRET_NT(struct stMachineState *pM, uint32_t pointer){
 
     struct stRawSegmentDesc RS;
     uint16_t next_tr;
-    next_tr = readDataMemByteAsSV(pM, pM->reg.descc_tr.base+0);
-    next_tr|=(readDataMemByteAsSV(pM, pM->reg.descc_tr.base+1)<<8);
+    next_tr  =             readDataMemByteAsSV(pM, pM->reg.descc_tr.base+0);
+    next_tr |= (((uint16_t)readDataMemByteAsSV(pM, pM->reg.descc_tr.base+1))<<8);
     uint8_t  RPL     = (next_tr & 3);
 
     uint8_t access;
