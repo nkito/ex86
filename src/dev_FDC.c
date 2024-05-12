@@ -11,10 +11,7 @@
 #define LOGLEVEL_FDC_NOTICE (LOGCAT_IO_FDC | LOGLV_NOTICE)
 
 
-void readFDD(uint8_t *pCylinder, uint8_t *pHead, uint8_t *pSector, uint8_t *buf512){
-    FILE *fp = NULL;
-    size_t count;
-
+void readFDD(struct stMachineState *pM, uint8_t *pCylinder, uint8_t *pHead, uint8_t *pSector, uint8_t *buf512){
     unsigned int nsector   = 18;
     unsigned int nhead     = 2;
 //    unsigned int ncylinder = 80;
@@ -23,18 +20,9 @@ void readFDD(uint8_t *pCylinder, uint8_t *pHead, uint8_t *pSector, uint8_t *buf5
 
     pos = ((*pCylinder*2 + *pHead)*18UL + *pSector - 1);
 
-    fp = fopen("driveRoot.img", "rb");
-
-    if( fp == NULL ) return ;
-    if( 0 != fseek(fp, ((unsigned long)pos)*512, SEEK_SET) ){
-        fclose(fp);
+    if( readDriveSector(pM, 0, pos, buf512) < 512 ){
         logfile_printf(LOGLEVEL_FDC_NOTICE,"FDC read: cannot read a sector\n");
         return ;
-    }
-    count = fread(buf512, 1, 512, fp);
-    fclose(fp);
-    if( count != 512 ){
-        logfile_printf(LOGLEVEL_FDC_NOTICE,"FDC read: cannot read a sector\n");
     }
 
     (*pSector)++;
@@ -206,7 +194,7 @@ void writeFDCReg(struct stMachineState *pM, struct periFDC *pFDC, uint32_t addr,
                 pM->pMemIo->ioFDC.cylinder    = pM->pMemIo->ioFDC.fifo[2]; // 
 
                 uint8_t buf[512];
-                readFDD(&(pM->pMemIo->ioFDC.cylinder), &(pM->pMemIo->ioFDC.head), &(pM->pMemIo->ioFDC.sector), buf);
+                readFDD(pM, &(pM->pMemIo->ioFDC.cylinder), &(pM->pMemIo->ioFDC.head), &(pM->pMemIo->ioFDC.sector), buf);
                 uint32_t DMABASE = (pM->pMemIo->ioDMAPage.addr[2]<<16) + (pM->pMemIo->ioDMAC.addr[2]);
                 if( DMABASE + 512 < EMU_MEM_SIZE){
                     for(int ad=0; ad<512;ad++){

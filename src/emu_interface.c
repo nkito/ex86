@@ -10,14 +10,6 @@
 #include "emu_interface.h"
 
 
-char * imageFileName[3] = {
-    "driveA.img",
-    "driveB.img",
-    "driveC.img"
-};
-
-
-
 void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
     uint32_t sector, addr;
     uint32_t ea;
@@ -112,14 +104,14 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
     }
 
     if( emu_cmd == EMU_INTERFACE_CMD_GET_DRIVE_SIZE ){
-        struct stat statBuf;
         uint8_t drive = (readDataMemByte(pM, ea+3) & 3);
+        uint32_t size = getDriveSize(pM, drive);
 
-        if (stat(imageFileName[drive], &statBuf) == 0){
-            writeDataMemByte(pM, ea+4, ((statBuf.st_size>> 0)&0xff));
-            writeDataMemByte(pM, ea+5, ((statBuf.st_size>> 8)&0xff));
-            writeDataMemByte(pM, ea+6, ((statBuf.st_size>>16)&0xff));
-            writeDataMemByte(pM, ea+7, ((statBuf.st_size>>24)&0xff));
+        if ( size != 0 ){
+            writeDataMemByte(pM, ea+4, ((size>> 0)&0xff));
+            writeDataMemByte(pM, ea+5, ((size>> 8)&0xff));
+            writeDataMemByte(pM, ea+6, ((size>>16)&0xff));
+            writeDataMemByte(pM, ea+7, ((size>>24)&0xff));
 
             writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_OK);
         }else{
@@ -130,9 +122,9 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
     }
 
     if( emu_cmd == EMU_INTERFACE_CMD_READ_HOST_FILE ){
-        FILE *fp;
         uint16_t boft, num;
         size_t count;
+        char fileName[64];
 
         seg = readDataMemByte(pM, ea+4); seg <<= 8;
         seg|= readDataMemByte(pM, ea+3);
@@ -148,18 +140,12 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
 
         addr = (((uint32_t)seg)<<4) + ((uint32_t)oft);
 
-        for(i=0; (buf[i]=readDataMemByte(pM, addr+i)) != '\0' && i+1<sizeof(buf); i++) ;
-        buf[i] = '\0';
+        for(i=0; (fileName[i]=readDataMemByte(pM, addr+i)) != '\0' && i+1<sizeof(fileName); i++) ;
+        fileName[i] = '\0';
 
-        logfile_printf(LOGCAT_EMU | LOGLV_NOTICE, "EMULATOR: opening host file \"%s\" for reading, block#: %d, buffer: 0x%x:0x%x\n", buf, num, seg, boft);
+        logfile_printf(LOGCAT_EMU | LOGLV_NOTICE, "EMULATOR: opening host file \"%s\" for reading, block#: %d, buffer: 0x%x:0x%x\n", fileName, num, seg, boft);
 
-        if( NULL == (fp = fopen((char *)buf, "rb")) ) goto readFileError;
-
-        if( 0 != fseek(fp, num*512, SEEK_SET) ){
-            fclose(fp); goto readFileError;
-        }
-        count = fread(buf, 1, 512, fp);
-        fclose(fp);
+        count = readHostFile(pM, fileName, num*512, 512, buf);
 
         addr = (((uint32_t)seg)<<4) + ((uint32_t)boft);
         for(i = 0; i < count; i++){
@@ -170,18 +156,13 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
 
         writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_OK);
         return;
-
-        readFileError:
-        logfile_printf(LOGCAT_EMU | LOGLV_NOTICE, "EMULATOR: opening host file \"%s\" was failed\n", buf);
-        writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_IOERROR);
-        return;
     }
 
     if( emu_cmd == EMU_INTERFACE_CMD_WRITE_HOST_FILE ){
-        FILE *fp = NULL;
         uint8_t nbyte, option;
         uint16_t boft;
         size_t count;
+        char fileName[64];
 
         seg = readDataMemByte(pM, ea+4); seg <<= 8;
         seg|= readDataMemByte(pM, ea+3);
@@ -197,41 +178,42 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
 
         addr = (((uint32_t)seg)<<4) + ((uint32_t)oft);
 
-        for(i=0; (buf[i]=readDataMemByte(pM, addr+i)) != '\0' && i+1<sizeof(buf); i++) ;
-        buf[i] = '\0';
-
-        logfile_printf(LOGCAT_EMU | LOGLV_NOTICE, "EMULATOR: opening host file \"%s\" for writing, nbyte: %d, option: %x, buffer: 0x%x:0x%x\n", buf, nbyte, option, seg, boft);
-
-        if( option == EMU_INTERFACE_CMD_WRITE_HOST_FILE_OPT_OVERWRITE ){
-            if( NULL == (fp = fopen((char *)buf, "rb+")) ) goto writeFileError;
-        }else if( option == EMU_INTERFACE_CMD_WRITE_HOST_FILE_OPT_APPEND ) {
-            if( NULL == (fp = fopen((char *)buf, "ab")) ) goto writeFileError;
-        }else if( option == EMU_INTERFACE_CMD_WRITE_HOST_FILE_OPT_CREATE ){
-            if( NULL == (fp = fopen((char *)buf, "wb")) ) goto writeFileError;
-        }
-
+        for(i=0; (fileName[i]=readDataMemByte(pM, addr+i)) != '\0' && i+1<sizeof(fileName); i++) ;
+        fileName[i] = '\0';
 
         addr = (((uint32_t)seg)<<4) + ((uint32_t)boft);
         for(i = 0; i < nbyte; i++){
             buf[i] = readDataMemByte(pM, addr+i);
         }
-        count = fwrite(buf, 1, nbyte, fp);
-        fclose(fp);
 
-        if( (count&0xff) != nbyte ) goto writeFileError;
+        logfile_printf(LOGCAT_EMU | LOGLV_NOTICE, "EMULATOR: opening host file \"%s\" for writing, nbyte: %d, option: %x, buffer: 0x%x:0x%x\n", fileName, nbyte, option, seg, boft);
 
-        writeDataMemByte(pM, ea+9, count&0xff );
-        writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_OK);
-        return;
+        switch( option ){
+            case EMU_INTERFACE_CMD_WRITE_HOST_FILE_OPT_OVERWRITE:
+                count = writeHostFile(pM, fileName, "rb+", nbyte, buf);
+                break;
+            case EMU_INTERFACE_CMD_WRITE_HOST_FILE_OPT_APPEND:
+                count = writeHostFile(pM, fileName, "ab", nbyte, buf);
+                break;
+            case EMU_INTERFACE_CMD_WRITE_HOST_FILE_OPT_CREATE:
+                count = writeHostFile(pM, fileName, "wb", nbyte, buf);
+                break;
+            default:
+                count = 0;
+        }
 
-        writeFileError:
-        logfile_printf(LOGCAT_EMU | LOGLV_NOTICE, "EMULATOR: opening host file \"%s\" was failed\n", buf);
-        writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_IOERROR);
+        if( (count&0xff) == nbyte ){
+            writeDataMemByte(pM, ea+9, count&0xff );
+            writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_OK);
+        }else{
+            logfile_printf(LOGCAT_EMU | LOGLV_NOTICE, "EMULATOR: opening host file \"%s\" was failed\n", fileName);
+            writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_IOERROR);
+        }
+
         return;
     }
 
     if( emu_cmd == EMU_INTERFACE_CMD_READ_DRIVE_SECTOR || emu_cmd == EMU_INTERFACE_CMD_WRITE_DRIVE_SECTOR ){
-        FILE *fp;
         uint8_t drive = (readDataMemByte(pM, ea+3) & 3);
         size_t count;
 
@@ -249,27 +231,17 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
 
         addr = (((uint32_t)seg)<<4) + ((uint32_t)oft);
 
- //           printf("<EMULATOR:READ_DRIVE_SECTOR: drive %d sector %d addr 0x%x [0x%x:0x%x]>\n", drive, sector, addr, seg,oft);
-
         termResetColor(); termSetBlinkOff();
         termGoTo(1, 27); PRINTF("[%c %c %c]", drive==0 ? '*' : ' ', drive==1 ? '*' : ' ', drive==2 ? '*' : ' '); FLUSH_STDOUT();
 
-        fp = fopen(imageFileName[drive], 
-            emu_cmd == EMU_INTERFACE_CMD_WRITE_DRIVE_SECTOR ? "rb+" : "rb");
-
-        if( fp == NULL ) goto readSectorIOerror;
-        if( 0 != fseek(fp, ((unsigned long)sector)*512, SEEK_SET) ){
-            fclose(fp); goto readSectorIOerror;
-        }
         if( emu_cmd == EMU_INTERFACE_CMD_WRITE_DRIVE_SECTOR ){
             for(count = 0; count < 512; count++){
                 buf[count] = readDataMemByte(pM, addr+count);
             }
-            count = fwrite(buf, 1, 512, fp);
+            count = writeDriveSector(pM, drive, sector, buf);
         }else{
-            count = fread(buf, 1, 512, fp);
+            count = readDriveSector(pM, drive, sector, buf);
         }
-        fclose(fp);
 
         termGoTo(1, 27); PRINTF("[     ]"); termResetBlink(); FLUSH_STDOUT();
 
@@ -280,12 +252,13 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
                 }
             }
             writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_OK);
-            return;
+
+        }else{
+
+            logfile_printf(LOGCAT_EMU | LOGLV_ERROR, "EMULATOR:READ_DRIVE_SECTOR:I/O ERROR: drive %d sector %d addr 0x%x [0x%x:0x%x]\n", drive, sector, addr, seg, oft);
+            writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_IOERROR);
         }
 
-        readSectorIOerror:
-        logfile_printf(LOGCAT_EMU | LOGLV_ERROR, "EMULATOR:READ_DRIVE_SECTOR:I/O ERROR: drive %d sector %d addr 0x%x [0x%x:0x%x]\n", drive, sector, addr, seg,oft);
-        writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_IOERROR);
         return;
     }
 }

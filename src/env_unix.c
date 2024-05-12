@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <ctype.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 
 
 #include "i8086.h"
@@ -15,6 +16,16 @@
 #include "terminal.h"
 #include "mem.h"
 #include "time.h"
+
+
+
+char * imageFileName[3] = {
+    "driveA.img",
+    "driveB.img",
+    "driveC.img"
+};
+
+
 
 //-----------------------------------------------------
 //   signal handler                      
@@ -43,13 +54,14 @@ void timer_handler(int signum){
 struct termios termOrigSettings;
 //-----------------------------------------------------
 
-
+/*
 int getIntFlag(struct stMachineState *pM){
     return intflag;
 }
 int getTimerFlag(struct stMachineState *pM){
     return timerflag;
 }
+*/
 void resetTimerFlag(struct stMachineState *pM){
     timerflag = 0;
 }
@@ -236,4 +248,86 @@ void saveTerminalSetting(struct stMachineState *pM){
 void restoreTerminalSetting(struct stMachineState *pM){
     tcsetattr(0, TCSANOW, &termOrigSettings);
     fcntl(0, F_SETFL, fcntl(0, F_GETFL) & (~O_NONBLOCK));
+}
+
+
+uint32_t getDriveSize(struct stMachineState *pM, int driveNum){
+    struct stat statBuf;
+
+    if( stat(imageFileName[driveNum], &statBuf) != 0 ){
+        return 0;
+    }
+
+    return statBuf.st_size;
+}
+
+size_t readDriveSector (struct stMachineState *pM, int driveNum, int sector, uint8_t *buf){
+    FILE *fp;
+    size_t  count;
+
+    fp = fopen(imageFileName[driveNum], "rb");
+
+    if( fp == NULL ){
+        return 0;
+    }
+    if( 0 != fseek(fp, ((unsigned long)sector)*512, SEEK_SET) ){
+        fclose(fp);
+        return 0;
+    }
+    count = fread(buf, 1, 512, fp);
+    fclose(fp);
+
+    return count;
+}
+
+size_t writeDriveSector(struct stMachineState *pM, int driveNum, int sector, uint8_t *buf){
+    FILE *fp;
+    size_t  count;
+
+    fp = fopen(imageFileName[driveNum], "rb+");
+
+    if( fp == NULL ){
+        return 0;
+    }
+    if( 0 != fseek(fp, ((unsigned long)sector)*512, SEEK_SET) ){
+        fclose(fp);
+        return 0;
+    }
+    count = fwrite(buf, 1, 512, fp);
+    fclose(fp);
+
+    return count;
+}
+
+size_t readHostFile (struct stMachineState *pM, char *file, size_t offset, size_t len, uint8_t *buf){
+    FILE *fp;
+    size_t count;
+
+    if( NULL == (fp = fopen((char *)buf, "rb")) ){
+        return 0;
+    }
+
+    if( 0 != fseek(fp, offset, SEEK_SET) ){
+        fclose(fp);
+        return 0;
+    }
+
+    count = fread(buf, 1, len, fp);
+    fclose(fp);
+
+    return count;
+}
+
+size_t writeHostFile(struct stMachineState *pM, char *file, char *mode, size_t len, uint8_t *buf){
+    FILE *fp;
+    size_t count;
+
+    if( NULL == (fp = fopen((char *)buf, mode)) ){
+        return 0;
+    }
+
+    count = fwrite(buf, 1, len, fp);
+    fclose(fp);
+
+    return count;
 }
