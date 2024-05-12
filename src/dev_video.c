@@ -26,7 +26,7 @@ void writeVideoReg(struct stMachineState *pM, uint16_t addr, uint8_t data){
             }
             break;
         default:
-            logfile_printf(LOGCAT_IO_VIDEO | LOGLV_INFO, "Video: addr 0x%02x data = 0x%02x\n", addr, pM->mem.ioTimer.counter[addr]);
+            logfile_printf(LOGCAT_IO_VIDEO | LOGLV_INFO, "Video: addr 0x%02x data = 0x%02x\n", addr, pM->pMemIo->ioTimer.counter[addr]);
             break;
     }
 }

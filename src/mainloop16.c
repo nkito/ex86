@@ -1,11 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <signal.h>
-#include <sys/time.h>
-#include <termios.h>
-#include <fcntl.h>
-#include <ctype.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "i8086.h"
 #include "instmap16.h"
@@ -19,9 +15,6 @@
 #define LOGLEVEL_EMU_INFO3  (LOGCAT_EMU | LOGLV_INFO3)
 #define LOGLEVEL_EMU_NOTICE (LOGCAT_EMU | LOGLV_NOTICE)
 #define LOGLEVEL_EMU_ERROR  (LOGCAT_EMU | LOGLV_ERROR)
-
-extern volatile sig_atomic_t eflag;
-extern volatile sig_atomic_t tflag;
 
 #define POINTER_LOG_SIZE 30
 static uint32_t pointerLog[POINTER_LOG_SIZE];
@@ -62,11 +55,11 @@ int emuMonitor16_splitCmd(char *cmd, int *pargc, char **argv, int maxArg){
 }
 
 void emuMonitor16_help(void){
-    printf(" d [addr] :  dump memory. \n");
-    printf(" reg      :  show register values. \n");
-    printf(" halt     :  halt the emulator and exit. \n");
-    printf(" exit     :  exit this monitor and return to emulation. \n");
-    printf(" help     :  show this message. \n\n");
+    PRINTF(" d [addr] :  dump memory. \n");
+    PRINTF(" reg      :  show register values. \n");
+    PRINTF(" halt     :  halt the emulator and exit. \n");
+    PRINTF(" exit     :  exit this monitor and return to emulation. \n");
+    PRINTF(" help     :  show this message. \n\n");
 }
 
 int emuMonitor16_execCmd(struct stMachineState *pM, char *cmd){
@@ -93,26 +86,26 @@ int emuMonitor16_execCmd(struct stMachineState *pM, char *cmd){
         }
         for(i = (addr & 0xffff0); i <= ((addr + 0x7f) | 0xf) && i <= 0xfffff; i++){
             if( (i & 0xf) == 0 ){
-                printf("%08x : ", i);
+                PRINTF("%08x : ", i);
             }
             if( i < addr ){
-                printf("   ");
+                PRINTF("   ");
                 memstr[i & 0xf] = ' ';
             }else{
                 membyte = readDataMemByte(pM, i);
-                printf("%02x ", membyte);
+                PRINTF("%02x ", membyte);
                 memstr[i & 0xf] = isprint(membyte) ? membyte : '.';
             }
             if( (i & 0xf) == 0xf ){
-                printf(": %s \r\n", memstr);
+                PRINTF(": %s \r\n", memstr);
             }
         }
         addr += 0x80;
     }else if( !strcmp(argv[0], "reg") ){
-        printf("CS:IP = %04x:%04x\n", REG_CS, REG_IP);
-        printf("AX=%04x BX=%04x CX=%04x DX=%04x \n", REG_AX, REG_BX, REG_CX, REG_DX);
-        printf("SP=%04x BP=%04x SI=%04x DI=%04x \n", REG_SP, REG_BP, REG_SI, REG_DI);
-        printf("ES=%04x CS=%04x SS=%04x DS=%04x FLAGS=%04x \n", REG_ES, REG_CS, REG_SS, REG_DS, REG_FLAGS);
+        PRINTF("CS:IP = %04x:%04x\n", REG_CS, REG_IP);
+        PRINTF("AX=%04x BX=%04x CX=%04x DX=%04x \n", REG_AX, REG_BX, REG_CX, REG_DX);
+        PRINTF("SP=%04x BP=%04x SI=%04x DI=%04x \n", REG_SP, REG_BP, REG_SI, REG_DI);
+        PRINTF("ES=%04x CS=%04x SS=%04x DS=%04x FLAGS=%04x \n", REG_ES, REG_CS, REG_SS, REG_DS, REG_FLAGS);
     }else if( !strcmp(argv[0], "exit") ){
         return 0;
     }else if( !strcmp(argv[0], "halt") ){
@@ -125,7 +118,7 @@ int emuMonitor16_execCmd(struct stMachineState *pM, char *cmd){
             if (*p != '\n' && *p != '\r' && *p != '\t' && *p != ' ')
                 break;
         }if( *p != '\0' ){
-            printf("Syntax error\r\n");
+            PRINTF("Syntax error\r\n");
             emuMonitor16_help();
         }
     }
@@ -145,24 +138,21 @@ extern struct termios term_original_settings;
 int emuMonitor16(struct stMachineState *pM){
     int result;
     char cmd[128];
-    struct termios settings;
 
-    settings = term_original_settings;
-    tcsetattr(0, TCSANOW, &settings);
-    fcntl(0, F_SETFL, fcntl(0, F_GETFL) & (~O_NONBLOCK));
+    restoreTerminalSetting(pM);
     termResetSettingForExit();
 
     termSetCharColor(charColorBrightRed);
-    printf("\nEmulator monitor (16-bit)\n\n");
-    printf("Use \"halt\" command to halt the emulator\n");
-    printf("Use \"exit\" command to return the emulator\n");
+    PRINTF("\nEmulator monitor (16-bit)\n\n");
+    PRINTF("Use \"halt\" command to halt the emulator\n");
+    PRINTF("Use \"exit\" command to return the emulator\n");
     termSetCharColor(charColorReset);
 
     do{
         termSetCharColor(charColorBrightCyan);
-        printf("> ");
+        PRINTF("> ");
         termSetCharColor(charColorReset);
-        fflush(stdout);
+        FLUSH_STDOUT();
 
         fgets(cmd, sizeof(cmd), stdin);
         result = emuMonitor16_execCmd(pM, cmd);
@@ -170,12 +160,7 @@ int emuMonitor16(struct stMachineState *pM){
 
     termResetSettingForExit();
     termClear();
-    settings = term_original_settings;
-    settings.c_lflag &= ~(ECHO | ICANON); /* without input echo, and unbuffered */
-    settings.c_cc[VTIME] = 0;
-    settings.c_cc[VMIN] = 1;
-    tcsetattr(0, TCSANOW, &settings);
-    fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+    initTerminalSetting(pM);
 
     return result;
 }
@@ -188,18 +173,16 @@ void mainloop16(struct stMachineState *pM){
     uint32_t pointer;
     int (*exFunc)(struct stMachineState *pM, uint32_t pointer);
 
-    struct timeval TimevalTime;
-    volatile sig_atomic_t prev_eflag = 0;
+    int prev_eflag = 0;
     time_t prevSIGINTtime = 0;
 
     pointer = MEMADDR(REG_CS, REG_IP);
     pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
     pM->reg.fetchCache[1] = fetchCodeDataByte(pM, pointer + 1);
 
-    if( eflag ){
-        prev_eflag = eflag;
-        gettimeofday(&TimevalTime, NULL);
-        prevSIGINTtime = (TimevalTime.tv_sec * 1000) + (TimevalTime.tv_usec / 1000);
+    if( getIntFlag(pM) ){
+        prev_eflag     = getIntFlag(pM);
+        prevSIGINTtime = getTimeInMs(pM);
     }
 
     PREFIX_AD32 = 0;
@@ -207,11 +190,9 @@ void mainloop16(struct stMachineState *pM){
     while( (stop == 0 || (stop > 0 && stop >= nExecInsts)) ){
 
         // Checking the SIGINT status, treatment of Ctrl+C.
-        if( eflag != prev_eflag ){
-            prev_eflag = eflag;
-            struct timeval time_now;
-            gettimeofday(&time_now, NULL);
-            time_t currentSIGINTtime = (time_now.tv_sec * 1000) + (time_now.tv_usec / 1000);
+        if( getIntFlag(pM) != prev_eflag ){
+            prev_eflag = getIntFlag(pM);
+            time_t currentSIGINTtime = getTimeInMs(pM);
 
             // time between two Ctrl+C keyins is shorter than 1000ms, then enter the monitor
             if( currentSIGINTtime - prevSIGINTtime < 1000 ){
@@ -238,14 +219,14 @@ void mainloop16(struct stMachineState *pM){
             logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
             log_printReg16(LOGLEVEL_EMU_NOTICE, pM);
         }
-        if( (pointer == pM->emu.breakPoint && stop == 0) || (pM->emu.breakCounter != 0 && pM->emu.breakCounter == nExecInsts) ){
+        if( (pointer == pM->pEmu->breakPoint && stop == 0) || (pM->pEmu->breakCounter != 0 && pM->pEmu->breakCounter == nExecInsts) ){
             logfile_printf(LOGLEVEL_EMU_NOTICE, "Breakpoint\n");
             logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
             logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
             log_printReg16(LOGLEVEL_EMU_NOTICE, pM);
 
             DEBUG = 1;
-            stop = nExecInsts + pM->emu.runAfterBreak;
+            stop = nExecInsts + pM->pEmu->runAfterBreak;
         }
 
         /*
@@ -292,9 +273,9 @@ void mainloop16(struct stMachineState *pM){
         saveInstPointer(pointer);
 
         // table lookup of the processing function for the instruction
-        if( pM->emu.emu_cpu == EMU_CPU_8086 ){
+        if( pM->pEmu->emu_cpu == EMU_CPU_8086 ){
             exFunc = instCodeFunc8086[pM->reg.fetchCache[0]];
-        }else if( pM->emu.emu_cpu == EMU_CPU_80186 ){
+        }else if( pM->pEmu->emu_cpu == EMU_CPU_80186 ){
             exFunc = instCodeFunc80186[pM->reg.fetchCache[0]];
         }else{
             exFunc = 0;
@@ -308,7 +289,7 @@ void mainloop16(struct stMachineState *pM){
             }else{
                 /* HLT instruction */
                 if( pM->reg.fetchCache[0] == 0xf4 ){
-                    fprintf(stderr, "\n\nProcessor halted\n");
+                    PRINTF("\n\nProcessor halted\n");
                     logfile_printf(LOGLEVEL_EMU_NOTICE, "Processor halted\n");
                     goto mainloop16_exit;
                 }
@@ -323,21 +304,21 @@ void mainloop16(struct stMachineState *pM){
         }
 
         if( exFunc == 0 ){
-            fprintf(stderr, "Unknown instruction\n");
+            PRINTF("Unknown instruction\n");
             logfile_printf(LOGLEVEL_EMU_ERROR, "Unknown instruction\n");
             goto mainloop16_exit;
         }
         if( result != EX_RESULT_SUCCESS ){
-            fprintf(stderr, "Instruction execusion error %d\n", result);
+            PRINTF("Instruction execusion error %d\n", result);
             logfile_printf(LOGLEVEL_EMU_ERROR, "Instruction execusion error %d\n", result);
             goto mainloop16_exit;
         }
 
         if( prev_flags & REG_FLAGS & (1 << FLAGS_BIT_TF) ){
             enterINT(pM, 1, REG_CS, REG_IP, 0);
-        }else if( (nExecInsts & 0x0f) == 0 && pM->mem.ioTimer.counter[0] != 0 && ((REG_FLAGS & (1 << FLAGS_BIT_IF)) != 0) ){
-            if( tflag ){
-                tflag = 0;
+        }else if( (nExecInsts & 0x0f) == 0 && pM->pMemIo->ioTimer.counter[0] != 0 && ((REG_FLAGS & (1 << FLAGS_BIT_IF)) != 0) ){
+            if( getTimerFlag(pM) ){
+                resetTimerFlag(pM);
                 enterINT(pM, 0x08, REG_CS, REG_IP, 0);
 
                 // resetTimerCounter(0);

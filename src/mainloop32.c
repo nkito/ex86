@@ -17,9 +17,6 @@
 #define LOGLEVEL_EMU_NOTICE (LOGCAT_EMU | LOGLV_NOTICE)
 #define LOGLEVEL_EMU_ERROR  (LOGCAT_EMU | LOGLV_ERROR)
 
-extern volatile sig_atomic_t eflag;
-extern volatile sig_atomic_t tflag;
-
 
 #define POINTER_LOG_SIZE 30
 static uint32_t pointerLog[POINTER_LOG_SIZE];
@@ -131,11 +128,11 @@ void mainloop32_inner(struct stMachineState *pM);
 
 void mainloop32(struct stMachineState *pM){
 
-    pM->emu.nExecInsts = 0;
-    pM->emu.stop       = 0;
+    pM->pEmu->nExecInsts = 0;
+    pM->pEmu->stop       = 0;
 
     do{
-        if ( sigsetjmp(pM->emu.env, 1) != 0 ) {
+        if ( sigsetjmp(pM->reg.env, 1) != 0 ) {
             if( pM->reg.fault & (1<<FAULTNUM_PAGEFAULT) ){
                 logfile_printf(LOGLEVEL_EMU_INFO3, "Page fault detected (error code: %x). CS:EIP=%x:%x (pointer %x)\n", pM->reg.error_code, pM->reg.current_cs, pM->reg.current_eip, REG_CS_BASE + pM->reg.current_eip);
             }else if( pM->reg.fault & (1<<FAULTNUM_GP) ){
@@ -160,7 +157,7 @@ void mainloop32_inner(struct stMachineState *pM){
     int (*exFunc)(struct stMachineState *pM, uint32_t pointer);
 
 
-    if( eflag != 0 ){
+    if( getIntFlag(pM) != 0 ){
         goto mainloop32_exit;
     }
 
@@ -196,7 +193,7 @@ void mainloop32_inner(struct stMachineState *pM){
         }
     }
 
-    while( (pM->emu.stop == 0 || (pM->emu.stop > 0 && pM->emu.stop >= pM->emu.nExecInsts)) && eflag == 0 ){
+    while( (pM->pEmu->stop == 0 || (pM->pEmu->stop > 0 && pM->pEmu->stop >= pM->pEmu->nExecInsts)) && getIntFlag(pM) == 0 ){
 
         PREFIX_SEG  = PREF_SEG_UNSPECIFIED;
         PREFIX_REPZ = PREF_REP_UNSPECIFIED;
@@ -219,27 +216,27 @@ void mainloop32_inner(struct stMachineState *pM){
             logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
             log_printReg32(LOGLEVEL_EMU_NOTICE, pM);
         }
-        if( ((pointer&pM->emu.breakMask) == (pM->emu.breakPoint&pM->emu.breakMask) && pM->emu.stop==0) || (pM->emu.breakCounter != 0 && pM->emu.breakCounter == pM->emu.nExecInsts) ){
+        if( ((pointer&pM->pEmu->breakMask) == (pM->pEmu->breakPoint&pM->pEmu->breakMask) && pM->pEmu->stop==0) || (pM->pEmu->breakCounter != 0 && pM->pEmu->breakCounter == pM->pEmu->nExecInsts) ){
             logfile_printf(LOGLEVEL_EMU_NOTICE, "Breakpoint\n");
             logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
             logfile_printf(LOGLEVEL_EMU_NOTICE, "pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
             log_printReg32(LOGLEVEL_EMU_NOTICE, pM);
 
             DEBUG=1;
-            pM->emu.stop = pM->emu.nExecInsts + pM->emu.runAfterBreak;
+            pM->pEmu->stop = pM->pEmu->nExecInsts + pM->pEmu->runAfterBreak;
         }
 
         saveInstPointer(pointer);
 
         if( pM->reg.fetchCache[0] == 0xeb && pM->reg.fetchCache[1] == 0xfe && !(REG_FLAGS & ((1<<FLAGS_BIT_TF)|(1<<FLAGS_BIT_IF))) ){
-            fprintf(stderr, "Infinite loop detected\n");
+            PRINTF("Infinite loop detected\n");
             logfile_printf(LOGLEVEL_EMU_NOTICE, "Infinite loop detected\n");
             goto mainloop32_exit;
         }
 
         // DEBUG CODE
         if( pM->reg.fetchCache[0] == 0x00 && pM->reg.fetchCache[1] == 0x00 && 00 == fetchCodeDataByte(pM, pointer+2)){
-            fprintf(stderr, "Here may not be code region \n");
+            PRINTF("Here may not be code region \n");
             logfile_printf(LOGLEVEL_EMU_NOTICE, "Here may not be code region \n");
             goto mainloop32_exit;
         }
@@ -261,18 +258,18 @@ void mainloop32_inner(struct stMachineState *pM){
         }
 
         if( exFunc != 0 ){
-            if(DEBUG) logfile_printf(LOGLEVEL_EMU_ERROR, "cnt:%06ld PC:%x  ", pM->emu.nExecInsts, pointer);
+            if(DEBUG) logfile_printf(LOGLEVEL_EMU_ERROR, "cnt:%06ld PC:%x  ", pM->pEmu->nExecInsts, pointer);
             prev_eflags = REG_FLAGS;
             result = exFunc(pM, pointer);
         }
 
         if( exFunc == 0 ){
-            fprintf(stderr, "Unknown instruction\n");
+            PRINTF("Unknown instruction\n");
             logfile_printf(LOGLEVEL_EMU_ERROR, "Unknown instruction\n");
             goto mainloop32_exit;
         }
         if( result != EX_RESULT_SUCCESS ){
-            fprintf(stderr, "Instruction execusion error %d\n", result);
+            PRINTF("Instruction execusion error %d\n", result);
             logfile_printf(LOGLEVEL_EMU_ERROR, "Instruction execusion error %d\n", result);
             goto mainloop32_exit;
         }
@@ -286,36 +283,44 @@ void mainloop32_inner(struct stMachineState *pM){
         }else if( prev_eflags & REG_FLAGS & (1<<FLAGS_BIT_TF) ){
             enterINT(pM, INTNUM_SINGLE_STEP, REG_CS, REG_EIP, 0);
 
+        }else if( (REG_DR7 & 0x03) && (REG_DR0 == pointer) ){ // TODO: other parameters should be considered
+            enterINT(pM, INTNUM_BREAKPOINT, REG_CS, REG_EIP, 0);
+        }else if( (REG_DR7 & 0x0c) && (REG_DR1 == pointer) ){ // TODO: other parameters should be considered
+            enterINT(pM, INTNUM_BREAKPOINT, REG_CS, REG_EIP, 0);
+        }else if( (REG_DR7 & 0x30) && (REG_DR2 == pointer) ){ // TODO: other parameters should be considered
+            enterINT(pM, INTNUM_BREAKPOINT, REG_CS, REG_EIP, 0);
+        }else if( (REG_DR7 & 0xc0) && (REG_DR3 == pointer) ){ // TODO: other parameters should be considered
+            enterINT(pM, INTNUM_BREAKPOINT, REG_CS, REG_EIP, 0);
 
         }else if( REG_FLAGS & (1<<FLAGS_BIT_IF) ){
-            if( pM->mem.ioTimer.counter[0] != 0 && 0 == ((pM->mem.ioPICmain.ocw1) & 1) && tflag ){
-                tflag = 0;
+            if( pM->pMemIo->ioTimer.counter[0] != 0 && 0 == ((pM->pMemIo->ioPICmain.ocw1) & 1) && getTimerFlag(pM) ){
+                resetTimerFlag(pM);
                 if( ! DEBUG ){
-                    enterINT(pM, (pM->mem.ioPICmain.icw2)&0xf8, REG_CS, REG_EIP, 0);
+                    enterINT(pM, (pM->pMemIo->ioPICmain.icw2)&0xf8, REG_CS, REG_EIP, 0);
                 }
-            }else if( pM->mem.ioFDC.irq && 0 == ((pM->mem.ioPICmain.ocw1) & (1<<6)) ){
+            }else if( pM->pMemIo->ioFDC.irq && 0 == ((pM->pMemIo->ioPICmain.ocw1) & (1<<6)) ){
                 logfile_printf(LOGLEVEL_EMU_INFO, "FDC interrupt \n");
-                enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+6, REG_CS, REG_EIP, 0);
-                pM->mem.ioFDC.irq = 0;
+                enterINT(pM, ((pM->pMemIo->ioPICmain.icw2)&0xf8)+6, REG_CS, REG_EIP, 0);
+                pM->pMemIo->ioFDC.irq = 0;
 
-            }else if( pM->mem.ioUART1.int_enable && 0 == ((pM->mem.ioPICmain.ocw1) & (1<<3)) ){
-                if( (pM->emu.nExecInsts&0x0f) == 0 && pM->mem.ioUART1.int_enable & 0x2 ){
+            }else if( pM->pMemIo->ioUART1.int_enable && 0 == ((pM->pMemIo->ioPICmain.ocw1) & (1<<3)) ){
+                if( (pM->pEmu->nExecInsts&0x0f) == 0 && pM->pMemIo->ioUART1.int_enable & 0x2 ){
                     // Once this interrupt is enabled, its handler will be called continuously and
                     // cannot be stop in interrupt-enabled conditions.
                     // Thus, the former condition is introduced.
                     logfile_printf(LOGLEVEL_EMU_INFO, "UART interrupt (tx ready) \n");
-                    enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP, 0);
+                    enterINT(pM, ((pM->pMemIo->ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP, 0);
 
-                }else if( (pM->mem.ioUART1.int_enable & 0x1) ){
+                }else if( (pM->pMemIo->ioUART1.int_enable & 0x1) ){
                     // Checking received charactor after every instruction is not required.
                     // The check frequency is reduced by the counter.
-                    if( ++(pM->mem.ioUART1.chkCntForInt) > 200 ){
-                        readUARTReg(pM, &(pM->mem.ioUART1), IOADDR_COM1_BASE + UART_REG_LINESTAT);
-                        pM->mem.ioUART1.chkCntForInt = 0;
+                    if( ++(pM->pMemIo->ioUART1.chkCntForInt) > 200 ){
+                        readUARTReg(pM, &(pM->pMemIo->ioUART1), IOADDR_COM1_BASE + UART_REG_LINESTAT);
+                        pM->pMemIo->ioUART1.chkCntForInt = 0;
                     }
-                    if( pM->mem.ioUART1.buffered ){
+                    if( pM->pMemIo->ioUART1.buffered ){
                         logfile_printf(LOGLEVEL_EMU_INFO, "UART interrupt (rx ready) \n");
-                        enterINT(pM, ((pM->mem.ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP, 0);
+                        enterINT(pM, ((pM->pMemIo->ioPICmain.icw2)&0xf8)+3, REG_CS, REG_EIP, 0);
                     }
                 }
             }
@@ -326,24 +331,24 @@ void mainloop32_inner(struct stMachineState *pM){
             goto mainloop32_exit;
         }
 
-        pM->emu.nExecInsts++;
+        pM->pEmu->nExecInsts++;
     }
 
 mainloop32_exit:
 
-    printf("\n\n");
+    PRINTF("\n\n");
 
-    if( eflag ){
+    if( getIntFlag(pM) ){
         logfile_printf(LOGLEVEL_EMU_NOTICE, "Interrupt...\n");
     }
 
     struct periPIC *pPIC;
-    pPIC = &(pM->mem.ioPICmain);
+    pPIC = &(pM->pMemIo->ioPICmain);
 
     logfile_printf(LOGLEVEL_EMU_INFO,"PIC: %s is configured as  icw1..4: %02x %02x %02x %02x, ocw1..3: %02x %02x %02x\n",
      "M", pPIC->icw1, pPIC->icw2, pPIC->icw3, pPIC->icw4, pPIC->ocw1, pPIC->ocw2, pPIC->ocw3);
 
-    pPIC = &(pM->mem.ioPICsub);
+    pPIC = &(pM->pMemIo->ioPICsub);
     logfile_printf(LOGLEVEL_EMU_INFO,"PIC: %s is configured as  icw1..4: %02x %02x %02x %02x, ocw1..3: %02x %02x %02x\n",
      "S", pPIC->icw1, pPIC->icw2, pPIC->icw3, pPIC->icw4, pPIC->ocw1, pPIC->ocw2, pPIC->ocw3);
 

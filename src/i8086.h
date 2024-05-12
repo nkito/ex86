@@ -4,12 +4,16 @@
 #include <setjmp.h>
 #include <stdint.h>
 
+#include "env_mem.h"
+
 #define EMU_MEM_SIZE (8*1024*1024)
 
-#define EMU_CPU_8086    1
-#define EMU_CPU_80186   2
-#define EMU_CPU_80286   3
-#define EMU_CPU_80386   4
+enum EMU_CPU_TYPE {
+    EMU_CPU_8086,
+    EMU_CPU_80186,
+    EMU_CPU_80286,
+    EMU_CPU_80386
+};
 
 
 #ifndef DEBUG
@@ -17,14 +21,16 @@
 #endif
 
 struct stEmuSetting{
-    int emu_cpu;
+    enum EMU_CPU_TYPE emu_cpu;
+
+    uint32_t watchAddr;
     uint32_t breakPoint;
     uint32_t breakMask;
     uint32_t runAfterBreak;
     uint64_t breakCounter;
-    sigjmp_buf env;
     uint64_t nExecInsts;
     uint64_t stop;
+
     unsigned int log_enabled_cat;
     unsigned int log_level;
 };
@@ -194,6 +200,8 @@ struct stReg{
     uint32_t current_esp;
 	uint32_t current_eflags;
     uint8_t fetchCache[2];
+
+    sigjmp_buf env;
 };
 
 enum eOpType {
@@ -267,9 +275,9 @@ struct stIO_UART{
     uint8_t chkCntForInt;
 };
 
+
 struct stMemIORegion{
     // watch address (disabled if watchAddr >= EMU_MEM_SIZE)
-    uint32_t watchAddr;
 
     struct periTimer ioTimer;
     struct periPIC ioPICmain;
@@ -288,17 +296,17 @@ struct stMemIORegion{
     uint8_t a20m;
     uint8_t enableOldIO;
 
-    uint8_t *mem;
+    struct stMemRegion stMem;   // system dependent part
 };
 
 struct stMachineState{
-    struct stEmuSetting  emu;
     struct stReg reg;
     struct stPrefix prefix;
-    struct stMemIORegion mem;
+    struct stEmuSetting  *pEmu;
+    struct stMemIORegion *pMemIo;
 };
 
-
+#include "env_unix.h"
 
 #define MEMADDR(seg, oft) (((((uint32_t)(seg)) << 4) + ((uint32_t)(oft))) & 0xfffff)
 

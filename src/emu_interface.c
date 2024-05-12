@@ -24,7 +24,7 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
     uint16_t seg, oft;
     uint8_t  emu_cmd;
     int i;
-    char buf[64];
+    uint8_t buf[512];
 
 
     ea = pM->reg.ss;
@@ -37,7 +37,7 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
     }
 
     if( emu_cmd == EMU_INTERFACE_CMD_PRINT_MSG ){
-        printf(" <message from the EMULATOR: \"%d\" is received > \n", readDataMemByte(pM, ea+3));
+        PRINTF(" <message from the EMULATOR: \"%d\" is received > \n", readDataMemByte(pM, ea+3));
         writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_OK);
         return;
     }
@@ -85,7 +85,7 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
         writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_OK);
 
         uint32_t memsize = EMU_MEM_SIZE;
-        if( pM->emu.emu_cpu < EMU_CPU_80286 && memsize >= 1024*1024 ){
+        if( pM->pEmu->emu_cpu < EMU_CPU_80286 && memsize >= 1024*1024 ){
             memsize = 1024*1024;
         }
 
@@ -101,9 +101,9 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
         writeDataMemByte(pM, ea+2, EMU_INTERFACE_RESULT_OK);
 
         uint16_t cpu = 86;
-        if( pM->emu.emu_cpu == EMU_CPU_80186 ) cpu = 186;
-        if( pM->emu.emu_cpu == EMU_CPU_80286 ) cpu = 286;
-        if( pM->emu.emu_cpu == EMU_CPU_80386 ) cpu = 386;
+        if( pM->pEmu->emu_cpu == EMU_CPU_80186 ) cpu = 186;
+        if( pM->pEmu->emu_cpu == EMU_CPU_80286 ) cpu = 286;
+        if( pM->pEmu->emu_cpu == EMU_CPU_80386 ) cpu = 386;
 
         writeDataMemByte(pM, ea+3, ((cpu>> 0)&0xff));
         writeDataMemByte(pM, ea+4, ((cpu>> 8)&0xff));
@@ -131,7 +131,6 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
 
     if( emu_cmd == EMU_INTERFACE_CMD_READ_HOST_FILE ){
         FILE *fp;
-        uint8_t buf[512];
         uint16_t boft, num;
         size_t count;
 
@@ -180,7 +179,7 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
 
     if( emu_cmd == EMU_INTERFACE_CMD_WRITE_HOST_FILE ){
         FILE *fp = NULL;
-        uint8_t buf[512], nbyte, option;
+        uint8_t nbyte, option;
         uint16_t boft;
         size_t count;
 
@@ -234,7 +233,6 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
     if( emu_cmd == EMU_INTERFACE_CMD_READ_DRIVE_SECTOR || emu_cmd == EMU_INTERFACE_CMD_WRITE_DRIVE_SECTOR ){
         FILE *fp;
         uint8_t drive = (readDataMemByte(pM, ea+3) & 3);
-        uint8_t buf[512];
         size_t count;
 
 
@@ -254,7 +252,7 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
  //           printf("<EMULATOR:READ_DRIVE_SECTOR: drive %d sector %d addr 0x%x [0x%x:0x%x]>\n", drive, sector, addr, seg,oft);
 
         termResetColor(); termSetBlinkOff();
-        termGoTo(1, 27); printf("[%c %c %c]", drive==0 ? '*' : ' ', drive==1 ? '*' : ' ', drive==2 ? '*' : ' '); fflush(stdout);
+        termGoTo(1, 27); PRINTF("[%c %c %c]", drive==0 ? '*' : ' ', drive==1 ? '*' : ' ', drive==2 ? '*' : ' '); FLUSH_STDOUT();
 
         fp = fopen(imageFileName[drive], 
             emu_cmd == EMU_INTERFACE_CMD_WRITE_DRIVE_SECTOR ? "rb+" : "rb");
@@ -273,7 +271,7 @@ void callEmuInterfacePort(struct stMachineState *pM, uint16_t data){
         }
         fclose(fp);
 
-        termGoTo(1, 27); printf("[     ]"); termResetBlink(); fflush(stdout);
+        termGoTo(1, 27); PRINTF("[     ]"); termResetBlink(); FLUSH_STDOUT();
 
         if( count == 512 ){
             if( emu_cmd == EMU_INTERFACE_CMD_READ_DRIVE_SECTOR ){

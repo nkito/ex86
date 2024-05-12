@@ -68,12 +68,12 @@ uint8_t  readIOByte (struct stMachineState *pM, uint32_t addr){
 
     // UART
     if(addr == 0 || addr==1){
-        return readUARTReg(pM, &(pM->mem.ioUART1), addr);
+        return readUARTReg(pM, &(pM->pMemIo->ioUART1), addr);
     }
 
     // UART
     if(addr >= IOADDR_COM1_BASE && addr < IOADDR_COM1_BASE+IOADDR_UART_SIZE){
-        return readUARTReg(pM, &(pM->mem.ioUART1), addr);
+        return readUARTReg(pM, &(pM->pMemIo->ioUART1), addr);
     }
 
     // Timer (i8254)
@@ -83,12 +83,12 @@ uint8_t  readIOByte (struct stMachineState *pM, uint32_t addr){
 
     // FDC
     if(addr >= IOADDR_FDC_BASE && addr < IOADDR_FDC_BASE + IOADDR_FDC_SIZE ){
-        return readFDCReg(pM, &(pM->mem.ioFDC), addr);
+        return readFDCReg(pM, &(pM->pMemIo->ioFDC), addr);
     }
 
     // DMAC
     if(addr >= IOADDR_DMAC0_BASE && addr < IOADDR_DMAC0_BASE + IOADDR_DMAC_SIZE ){
-        return readDMACReg(pM, &(pM->mem.ioDMAC), addr);
+        return readDMACReg(pM, &(pM->pMemIo->ioDMAC), addr);
     }
 
     // intterupt controller (i8259A x2)
@@ -106,17 +106,17 @@ uint8_t  readIOByte (struct stMachineState *pM, uint32_t addr){
 
     // System Control Register A
     if( addr == IOADDR_SYSCTRL_A ){
-        return pM->mem.ioSysCtrlA;
+        return pM->pMemIo->ioSysCtrlA;
     }
 
     // System Control Register B
     if( addr == IOADDR_SYSCTRL_B ){
-        return pM->mem.ioSysCtrlB;
+        return pM->pMemIo->ioSysCtrlB;
     }
 
     // CMOS
     if( addr >= IOADDR_CMOS_BASE && addr < IOADDR_CMOS_BASE + IOADDR_CMOS_SIZE ){
-        return readCMOSReg(pM, &(pM->mem.ioCMOS), addr);
+        return readCMOSReg(pM, &(pM->pMemIo->ioCMOS), addr);
     }
 
     if(unhandled != addr){
@@ -139,10 +139,10 @@ void writeIOByte (struct stMachineState *pM, uint32_t addr, uint8_t  data){
 
     if(addr == 0){ // addr==0 may conflict with DMA ch0, buf ch0 is not used (because it is reserved for DRAM)
         // UART
-        writeUARTReg(pM, &(pM->mem.ioUART1), addr, data);
+        writeUARTReg(pM, &(pM->pMemIo->ioUART1), addr, data);
     }else if(addr >= IOADDR_COM1_BASE && addr < IOADDR_COM1_BASE+IOADDR_UART_SIZE){
         // UART
-        writeUARTReg(pM, &(pM->mem.ioUART1), addr, data);
+        writeUARTReg(pM, &(pM->pMemIo->ioUART1), addr, data);
 
     }else if(addr >= IOADDR_TCU_BASE && addr <= IOADDR_TCU_BASE+3){
         writeTimerReg(pM, addr - IOADDR_TCU_BASE, data);
@@ -157,31 +157,31 @@ void writeIOByte (struct stMachineState *pM, uint32_t addr, uint8_t  data){
         writeVideoReg(pM, addr, data);
 
     }else if( addr >= IOADDR_FDC_BASE && addr < IOADDR_FDC_BASE + IOADDR_FDC_SIZE){
-        writeFDCReg(pM, &(pM->mem.ioFDC), addr, data);
+        writeFDCReg(pM, &(pM->pMemIo->ioFDC), addr, data);
 
     }else if( addr >= IOADDR_DMAC0_BASE && addr < IOADDR_DMAC0_BASE + IOADDR_DMAC_SIZE){
-        writeDMACReg(pM, &(pM->mem.ioDMAC), addr, data);
+        writeDMACReg(pM, &(pM->pMemIo->ioDMAC), addr, data);
 
     }else if( addr != 0x80 && addr >= IOADDR_DMAC_PAGEADDR_BASE && addr < IOADDR_DMAC_PAGEADDR_BASE + IOADDR_DMAC_PAGEADDR_SIZE){
-        setDMAPageAddr(pM, &(pM->mem.ioDMAPage), addr, data);
+        setDMAPageAddr(pM, &(pM->pMemIo->ioDMAPage), addr, data);
 
     }else if(addr == IOADDR_SYSCTRL_A ){
-        pM->mem.ioSysCtrlA = data;
+        pM->pMemIo->ioSysCtrlA = data;
 
         // bit2 = 1: A20 is active (access above 1MB is possible)
         if( (data & 0x2) ){
-            pM->mem.a20m = 0; // a20 line is enabled 
+            pM->pMemIo->a20m = 0; // a20 line is enabled 
         }else{
-            pM->mem.a20m = 1; // a20 line is disabled (masked)
+            pM->pMemIo->a20m = 1; // a20 line is disabled (masked)
         }
 
     }else if(addr == IOADDR_SYSCTRL_B ){
-        pM->mem.ioSysCtrlB = data;
+        pM->pMemIo->ioSysCtrlB = data;
         if( (data & 0x3) == 0x03 ){
             printf("\a");
         }
     }else if( addr >= IOADDR_CMOS_BASE && addr < IOADDR_CMOS_BASE + IOADDR_CMOS_SIZE ){
-        writeCMOSReg(pM, &(pM->mem.ioCMOS), addr, data);
+        writeCMOSReg(pM, &(pM->pMemIo->ioCMOS), addr, data);
 
         // pM->mem.ioCMOS.reg_addr = data;
     }else{

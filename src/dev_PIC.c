@@ -13,10 +13,10 @@ void writePICReg(struct stMachineState *pM, uint8_t addr, uint8_t data){
     int isMain = 0;
 
     if(  addr == IOADDR_PIC_MAIN_BASE || addr == IOADDR_PIC_MAIN_BASE+1 ){
-        pPIC = &(pM->mem.ioPICmain);
+        pPIC = &(pM->pMemIo->ioPICmain);
         isMain = 1;
     }else if(  addr == IOADDR_PIC_SUB_BASE || addr == IOADDR_PIC_SUB_BASE+1 ){
-        pPIC = &(pM->mem.ioPICsub);
+        pPIC = &(pM->pMemIo->ioPICsub);
     }else{
         return;
     }
@@ -64,10 +64,10 @@ uint8_t readPICReg(struct stMachineState *pM, uint8_t addr){
     int isMain = 0;
 
     if(  addr == IOADDR_PIC_MAIN_BASE || addr == IOADDR_PIC_MAIN_BASE+1 ){
-        pPIC = &(pM->mem.ioPICmain);
+        pPIC = &(pM->pMemIo->ioPICmain);
         isMain = 1;
     }else if(  addr == IOADDR_PIC_SUB_BASE || addr == IOADDR_PIC_SUB_BASE+1 ){
-        pPIC = &(pM->mem.ioPICsub);
+        pPIC = &(pM->pMemIo->ioPICsub);
     }else{
         return 0;
     }

@@ -42,7 +42,6 @@ uint8_t readUARTReg(struct stMachineState *pM, struct stIO_UART *pUART, uint32_t
             }
         }
         if( addr == IOADDR_COM0_BASE + UART_REG_LINESTAT || addr == IOADDR_COM1_BASE + UART_REG_LINESTAT ){
-            //printf(" addr  %x  %x\n", addr, pUART->buffered);
             return (pUART->buffered ? (UART_TX_BUF_EMPTY|UART_TX_EMPTY|UART_RX_BUF_FULL) : (UART_TX_BUF_EMPTY|UART_TX_EMPTY));
         }
         return (pUART->buffered ? 1 : 0);
@@ -78,14 +77,14 @@ void writeUARTReg  (struct stMachineState *pM, struct stIO_UART *pUART, uint32_t
 
     if( (addr&IOADDR_UART_MASK) == UART_REG_TXBUF ){
         if(DEBUG){
-            printf("SERIAL OUT: %c\n", data);
+            PRINTF("SERIAL OUT: %c\n", data);
         }else{
             if(data == '\n'){
-                printf("\033[39m");
-                printf("\033[49m");
+                PRINTF("\033[39m");
+                PRINTF("\033[49m");
             }
-            printf("%c", data);
-            fflush(stdout);
+            PRINTF("%c", data);
+            FLUSH_STDOUT();
 
             logfile_printf(LOGLEVEL_UART_NOTICE, "UART OUT(port %x) : %x \'(%c)\' \n", addr, data, isprint(data) ? data : '?');
         }

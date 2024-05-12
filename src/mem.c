@@ -16,10 +16,10 @@ inline uint32_t readPhysMemDoubleWord(struct stMachineState *pM, uint32_t addr){
     if( addr3 >= EMU_MEM_SIZE ) return 0; // addr3 = (addr3 % EMU_MEM_SIZE);
 
     uint32_t result =
-           (  ((uint32_t)(pM->mem.mem[addr ]))       |
-             (((uint32_t)(pM->mem.mem[addr1])) << 8) |
-             (((uint32_t)(pM->mem.mem[addr2])) <<16) |
-             (((uint32_t)(pM->mem.mem[addr3])) <<24) );
+           (   (uint32_t)(MEM_READ(pM, addr ))        |
+             (((uint32_t)(MEM_READ(pM, addr1))) << 8) |
+             (((uint32_t)(MEM_READ(pM, addr2))) <<16) |
+             (((uint32_t)(MEM_READ(pM, addr3))) <<24) );
 
     return result;
 }
@@ -27,7 +27,7 @@ inline uint32_t readPhysMemDoubleWord(struct stMachineState *pM, uint32_t addr){
 inline void writePhysMemByte(struct stMachineState *pM, uint32_t addr, uint8_t data){
     if( addr >= EMU_MEM_SIZE ) return ;
 
-    pM->mem.mem[addr] = data;
+    MEM_WRITE(pM, addr, data);
 }
 
 int checkLinearAccessible(struct stMachineState *pM, uint32_t linear){
@@ -192,7 +192,7 @@ fault_pf:
     if( pM->reg.fault ){
         logfile_printf(LOGCAT_CPU_MEM | LOGLV_NOTICE, "L2P (CR3: %x, dir: %x, pde:%x, ptable: %x, pte:%x) %x -> %x\n", 
         pM->reg.cr[3], dir, pde, ptable, pte, linear, paddr);
-        siglongjmp(pM->emu.env, -1);
+        siglongjmp(pM->reg.env, -1);
         pM->reg.fault = 0;
     }
     return paddr;
@@ -218,7 +218,7 @@ uint32_t fetchCodeDataDoubleWord(struct stMachineState *pM, uint32_t addr){
     uint32_t addr2 = addr + 2;
     uint32_t addr3 = addr + 3;
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
         addr2 &= 0xfffff;
@@ -231,10 +231,10 @@ uint32_t fetchCodeDataDoubleWord(struct stMachineState *pM, uint32_t addr){
         if( addr3 >= EMU_MEM_SIZE ) return 0;
     }
 
-    return (  ((uint32_t)pM->mem.mem[addr ])       |
-             (((uint32_t)pM->mem.mem[addr1]) << 8) |
-             (((uint32_t)pM->mem.mem[addr2]) <<16) |
-             (((uint32_t)pM->mem.mem[addr3]) <<24) );
+    return (  ((uint32_t)MEM_READ(pM, addr ))       |
+             (((uint32_t)MEM_READ(pM, addr1)) << 8) |
+             (((uint32_t)MEM_READ(pM, addr2)) <<16) |
+             (((uint32_t)MEM_READ(pM, addr3)) <<24) );
 }
 
 uint16_t fetchCodeDataWord(struct stMachineState *pM, uint32_t addr){
@@ -255,15 +255,15 @@ uint16_t fetchCodeDataWord(struct stMachineState *pM, uint32_t addr){
 
     uint32_t addr1 = addr + 1;
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
     }
     if( addr  >= EMU_MEM_SIZE ) return 0;
     if( addr1 >= EMU_MEM_SIZE ) return 0;
 
-    return (  ((uint16_t)pM->mem.mem[addr ]) |
-             (((uint16_t)pM->mem.mem[addr1]) << 8) );
+    return (  ((uint16_t)MEM_READ(pM, addr)) |
+             (((uint16_t)MEM_READ(pM, addr1)) << 8) );
 }
 
 uint8_t fetchCodeDataByte(struct stMachineState *pM, uint32_t addr){
@@ -277,12 +277,12 @@ uint8_t fetchCodeDataByte(struct stMachineState *pM, uint32_t addr){
         addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl); // read access, privilege level = CPL
     }
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr &= 0xfffff;
     }
     if( addr >= EMU_MEM_SIZE ) return 0;
 
-    return pM->mem.mem[addr];
+    return MEM_READ(pM, addr);
 }
 
 uint8_t readDataMemByteAsSV(struct stMachineState *pM, uint32_t addr){
@@ -290,12 +290,12 @@ uint8_t readDataMemByteAsSV(struct stMachineState *pM, uint32_t addr){
         addr = getPhysFromLinear(pM, addr, 1, 0); // read access, privilege level = 0
     }
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr &= 0xfffff;
     }
     if( addr >= EMU_MEM_SIZE ) return 0;
 
-    return pM->mem.mem[addr];
+    return MEM_READ(pM, addr);
 }
 
 uint8_t readDataMemByte(struct stMachineState *pM, uint32_t addr){
@@ -303,12 +303,12 @@ uint8_t readDataMemByte(struct stMachineState *pM, uint32_t addr){
         addr = getPhysFromLinear(pM, addr, 1, pM->reg.cpl); // read access, privilege level = CPL
     }
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr &= 0xfffff;
     }
     if( addr >= EMU_MEM_SIZE ) return 0;
 
-    return pM->mem.mem[addr];
+    return MEM_READ(pM, addr);
 }
 
 uint16_t readDataMemWord(struct stMachineState *pM, uint32_t addr){ 
@@ -324,14 +324,14 @@ uint16_t readDataMemWord(struct stMachineState *pM, uint32_t addr){
 
     uint32_t addr1 = addr + 1;
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
     }
     if( addr  >= EMU_MEM_SIZE ) return 0;
     if( addr1 >= EMU_MEM_SIZE ) return 0;
 
-    return ( pM->mem.mem[addr ] | (((uint16_t)pM->mem.mem[addr1])<<8) );
+    return ( MEM_READ(pM, addr) | (((uint16_t)MEM_READ(pM, addr1))<<8) );
 }
 
 uint32_t readDataMemDoubleWord(struct stMachineState *pM, uint32_t addr){ 
@@ -349,7 +349,7 @@ uint32_t readDataMemDoubleWord(struct stMachineState *pM, uint32_t addr){
     uint32_t addr2 = addr + 2;
     uint32_t addr3 = addr + 3;
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
         addr2 &= 0xfffff;
@@ -362,10 +362,10 @@ uint32_t readDataMemDoubleWord(struct stMachineState *pM, uint32_t addr){
         if( addr3 >= EMU_MEM_SIZE ) return 0;
     }
 
-    return (  ((uint32_t)pM->mem.mem[addr ])       |
-             (((uint32_t)pM->mem.mem[addr1]) << 8) |
-             (((uint32_t)pM->mem.mem[addr2]) <<16) |
-             (((uint32_t)pM->mem.mem[addr3]) <<24) );
+    return (  ((uint32_t)MEM_READ(pM, addr ))       |
+             (((uint32_t)MEM_READ(pM, addr1)) << 8) |
+             (((uint32_t)MEM_READ(pM, addr2)) <<16) |
+             (((uint32_t)MEM_READ(pM, addr3)) <<24) );
 }
 
 static unsigned char getCharacterForConsole(unsigned char c){
@@ -386,11 +386,11 @@ static unsigned char getCharacterForConsole(unsigned char c){
 
 
 void updateCursorPosition(struct stMachineState *pM, uint32_t addr){
-    int posx = pM->mem.mem[ addr & (~1) ];
-    int posy = pM->mem.mem[ addr |   1  ];
+    int posx = MEM_READ(pM, addr & (~1) );
+    int posy = MEM_READ(pM, addr |   1  );
 
     termGoTo(posx+1, posy+1);
-    fflush(stdout);
+    FLUSH_STDOUT();
 }
 
 #define DISP_CHAR_POS(x,y)  (0xb8000 + (2*80*(y))+(2*(x)) + 0)
@@ -409,14 +409,14 @@ void updateConsole(struct stMachineState *pM, uint32_t addr){
         y =  pos/80;
         xs= x;
 
-        buf[0] = pM->mem.mem[ 0xb8000 + (2*80*y)+(2*xs) + 0 ];
-        buf[1] = pM->mem.mem[ 0xb8000 + (2*80*y)+(2*xs) + 1 ];
+        buf[0] = MEM_READ(pM, 0xb8000 + (2*80*y)+(2*xs) + 0 );
+        buf[1] = MEM_READ(pM, 0xb8000 + (2*80*y)+(2*xs) + 1 );
 
-        int posx = pM->mem.mem[ BIOS_DATA_AREA_CURSOR_X_0 ];
-        int posy = pM->mem.mem[ BIOS_DATA_AREA_CURSOR_Y_0 ];
+        int posx = MEM_READ(pM, BIOS_DATA_AREA_CURSOR_X_0 );
+        int posy = MEM_READ(pM, BIOS_DATA_AREA_CURSOR_Y_0 );
 
         for(int k=0; k<=x; k++){
-            c = pM->mem.mem[ DISP_CHAR_POS(k,y) ];
+            c = MEM_READ(pM, DISP_CHAR_POS(k,y) );
             kanji1b_prev = kanji1b;
             if(kanji1b){
                 kanji1b = 0;
@@ -438,39 +438,38 @@ void updateConsole(struct stMachineState *pM, uint32_t addr){
         termSetCharColor(  fcolor[buf[1]&0xf] );
         termGoTo( xs+1, y+1 );
         for( ; xs<=x; xs++){
-            buf[0] = pM->mem.mem[ DISP_CHAR_POS(xs,y) ];
-            printf( "%c", getCharacterForConsole(buf[0]) );
+            buf[0] = MEM_READ(pM, DISP_CHAR_POS(xs,y) );
+            PRINTF( "%c", getCharacterForConsole(buf[0]) );
         }
         termGoTo( posx+1, posy+1 );
         termResetBlink();
-        fflush(stdout);
+        FLUSH_STDOUT();
     }
 }
 
 void writeDataMemByteAsSV(struct stMachineState *pM, uint32_t addr, uint8_t  data){
-    if( addr == pM->mem.watchAddr ){
-        printf("WRITE 0x%x (at [cs:ip] = 0x%04x:0x%04x)", addr, REG_CS, REG_EIP);
-        printf(" 0x%02x -> 0x%02x>\n", pM->mem.mem[addr&0xfffff], data);
+    if( addr == pM->pEmu->watchAddr ){
+        PRINTF("WRITE 0x%x (at [cs:ip] = 0x%04x:0x%04x)", addr, REG_CS, REG_EIP);
+        PRINTF(" 0x%02x -> 0x%02x>\n", MEM_READ(pM, addr&0xfffff), data);
     }
     
     if( pM->reg.cr[0] & (1<<CR0_BIT_PG) ){
         addr = getPhysFromLinear(pM, addr, 0, 0); // write access, privilege level = 0
     }
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr &= 0xfffff;
     }
     if( addr >= EMU_MEM_SIZE ) return ;
 
-    pM->mem.mem[addr] = data;
+    MEM_WRITE(pM, addr, data);
 
     if( addr == BIOS_DATA_AREA_CURSOR_X_0 || addr == BIOS_DATA_AREA_CURSOR_Y_0 ) updateCursorPosition(pM, addr);
     if( (addr&0xffff8000) == 0xb8000 ) updateConsole(pM, addr);
 }
 
 void writeDataMemByte(struct stMachineState *pM, uint32_t addr, uint8_t  data){
-    if( addr == pM->mem.watchAddr ){
-        printf("<WRITE addr:0x%x, data:0x%x (at [cs:eip] = 0x%04x:0x%04x)", addr, data, REG_CS, REG_EIP);
+    if( addr == pM->pEmu->watchAddr ){
         logfile_printf(LOGCAT_CPU_MEM|LOGLV_ERROR, "<WRITE addr:0x%x, data:0x%x (at [cs:eip] = 0x%04x:0x%04x)\n", addr, data, REG_CS, REG_EIP);
     }
     
@@ -478,20 +477,19 @@ void writeDataMemByte(struct stMachineState *pM, uint32_t addr, uint8_t  data){
         addr = getPhysFromLinear(pM, addr, 0, pM->reg.cpl); // write access, privilege level = CPL
     }
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr &= 0xfffff;
     }
     if( addr >= EMU_MEM_SIZE ) return ;
 
-    pM->mem.mem[addr] = data;
+    MEM_WRITE(pM, addr, data);
 
     if( addr == BIOS_DATA_AREA_CURSOR_X_0 || addr == BIOS_DATA_AREA_CURSOR_Y_0 ) updateCursorPosition(pM, addr);
     if( (addr&0xffff8000) == 0xb8000 ) updateConsole(pM, addr);
 }
 
 void writeDataMemWord(struct stMachineState *pM, uint32_t addr, uint16_t data){
-    if( addr == pM->mem.watchAddr || addr+1 == pM->mem.watchAddr ){
-        printf("<WRITE addr:0x%x, data:0x%x (at [cs:eip] = 0x%04x:0x%04x)", addr, data, REG_CS, REG_EIP);
+    if( addr == pM->pEmu->watchAddr || addr+1 == pM->pEmu->watchAddr ){
         logfile_printf(LOGCAT_CPU_MEM|LOGLV_ERROR, "<WRITE addr:0x%x, data:0x%x (at [cs:eip] = 0x%04x:0x%04x)\n", addr, data, REG_CS, REG_EIP);
     }
 
@@ -505,15 +503,15 @@ void writeDataMemWord(struct stMachineState *pM, uint32_t addr, uint16_t data){
     }
 
     uint32_t addr1 = addr + 1;
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
     }
     if( addr  >= EMU_MEM_SIZE ) return ;
     if( addr1 >= EMU_MEM_SIZE ) return ;
 
-    pM->mem.mem[addr]  = data&0xff;
-    pM->mem.mem[addr1] = (data>>8);
+    MEM_WRITE(pM, addr,  data&0xff);
+    MEM_WRITE(pM, addr1, (data>>8));
 
     if( BIOS_DATA_AREA_CURSOR_X_0 -1 <= addr && addr <= BIOS_DATA_AREA_CURSOR_Y_0 ) updateCursorPosition(pM, addr);
 //    if( addr1 == BIOS_DATA_AREA_CURSOR_X_0 || addr == BIOS_DATA_AREA_CURSOR_X_0 || addr == BIOS_DATA_AREA_CURSOR_Y_0 ) updateCursorPosition(pM, addr);
@@ -521,8 +519,7 @@ void writeDataMemWord(struct stMachineState *pM, uint32_t addr, uint16_t data){
 }
 
 void writeDataMemDoubleWord(struct stMachineState *pM, uint32_t addr, uint32_t data){
-    if( addr == pM->mem.watchAddr || addr+1 == pM->mem.watchAddr || addr+2 == pM->mem.watchAddr || addr+3 == pM->mem.watchAddr ){
-        printf("<WRITE addr:0x%x, data:0x%x (at [cs:eip] = 0x%04x:0x%04x)", addr, data, REG_CS, REG_EIP);
+    if( addr == pM->pEmu->watchAddr || addr+1 == pM->pEmu->watchAddr || addr+2 == pM->pEmu->watchAddr || addr+3 == pM->pEmu->watchAddr ){
         logfile_printf(LOGCAT_CPU_MEM|LOGLV_ERROR, "<WRITE addr:0x%x, data:0x%x (at [cs:eip] = 0x%04x:0x%04x)\n", addr, data, REG_CS, REG_EIP);
     }
 
@@ -540,7 +537,7 @@ void writeDataMemDoubleWord(struct stMachineState *pM, uint32_t addr, uint32_t d
     uint32_t addr2 = addr + 2;
     uint32_t addr3 = addr + 3;
 
-    if( pM->mem.a20m ){
+    if( pM->pMemIo->a20m ){
         addr  &= 0xfffff;
         addr1 &= 0xfffff;
         addr2 &= 0xfffff;
@@ -553,10 +550,10 @@ void writeDataMemDoubleWord(struct stMachineState *pM, uint32_t addr, uint32_t d
         if( addr3 >= EMU_MEM_SIZE ) return;
     }
 
-    pM->mem.mem[addr ] = ( data     &0xff);
-    pM->mem.mem[addr1] = ((data>> 8)&0xff);
-    pM->mem.mem[addr2] = ((data>>16)&0xff);
-    pM->mem.mem[addr3] = ((data>>24)&0xff);
+    MEM_WRITE(pM, addr ,  data     &0xff);
+    MEM_WRITE(pM, addr1, (data>> 8)&0xff);
+    MEM_WRITE(pM, addr2, (data>>16)&0xff);
+    MEM_WRITE(pM, addr3, (data>>24)&0xff);
 
     if( BIOS_DATA_AREA_CURSOR_X_0 -3 <= addr && addr <= BIOS_DATA_AREA_CURSOR_Y_0 ) updateCursorPosition(pM, addr);
     if( (addr&0xffff8000) == 0xb8000 || (addr3&0xffff8000) == 0xb8000 ) updateConsole(pM, addr);

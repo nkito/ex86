@@ -174,7 +174,7 @@ int decode_segReg3bit(struct stMachineState *pM, uint32_t pointer, struct stOpl 
     unsigned char reg;
 
     reg = ((code>>3) & 0x7);
-    if( pM->emu.emu_cpu == EMU_CPU_8086 || pM->emu.emu_cpu == EMU_CPU_80186 || pM->emu.emu_cpu == EMU_CPU_80286 ){
+    if( pM->pEmu->emu_cpu == EMU_CPU_8086 || pM->pEmu->emu_cpu == EMU_CPU_80186 || pM->pEmu->emu_cpu == EMU_CPU_80286 ){
         reg &= 0x3;
     }else{
         if( reg >= SEGREG_NUMS32 ){
@@ -252,7 +252,7 @@ uint32_t readOplEA(struct stMachineState *pM, struct stOpl *pOp, uint8_t withSeg
             case 5:  op1 = (pOp->width ? REG_EBP : ((REG_CX>>8)&0xff)); break;
             case 6:  op1 = (pOp->width ? REG_ESI : ((REG_DX>>8)&0xff)); break;
             case 7:  op1 = (pOp->width ? REG_EDI : ((REG_BX>>8)&0xff)); break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
         if( PREFIX_OP32 ){
             addr = op1;
@@ -267,7 +267,7 @@ uint32_t readOplEA(struct stMachineState *pM, struct stOpl *pOp, uint8_t withSeg
             case 3:  op1 = REG_DS; break;
             case 4:  op1 = REG_FS; break;
             case 5:  op1 = REG_GS; break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
         addr = op1;
     }else if(pOp->type == OpTypeMemWithSeg){
@@ -279,7 +279,7 @@ uint32_t readOplEA(struct stMachineState *pM, struct stOpl *pOp, uint8_t withSeg
                 case 3:  addr = REG_DS_BASE; break;
                 case 4:  addr = REG_FS_BASE; break;
                 case 5:  addr = REG_GS_BASE; break;
-                default: printf("Invalid reg number \n");
+                default: PRINTF("Invalid reg number \n");
             }
         }
         addr += pOp->addr;
@@ -372,7 +372,7 @@ uint32_t readOpl(struct stMachineState *pM, struct stOpl *pOp){
             case 5:  op1 = (pOp->width ? REG_EBP : ((REG_CX>>8)&0xff)); break;
             case 6:  op1 = (pOp->width ? REG_ESI : ((REG_DX>>8)&0xff)); break;
             case 7:  op1 = (pOp->width ? REG_EDI : ((REG_BX>>8)&0xff)); break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
         if( ! PREFIX_OP32 ) op1 &= 0xffff;
     }else if(pOp->type == OpTypeSegReg){
@@ -383,7 +383,7 @@ uint32_t readOpl(struct stMachineState *pM, struct stOpl *pOp){
             case 3:  op1 = REG_DS; break;
             case 4:  op1 = REG_FS; break;
             case 5:  op1 = REG_GS; break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
     }else if(pOp->type == OpTypeMemWithSeg){
         uint32_t addr = 0;
@@ -394,7 +394,7 @@ uint32_t readOpl(struct stMachineState *pM, struct stOpl *pOp){
             case 3:  addr = REG_DS_BASE; CHECK_READ_CONDITION_FOR_DATA(ds, pOp->addr); break;
             case 4:  addr = REG_FS_BASE; CHECK_READ_CONDITION_FOR_DATA(fs, pOp->addr); break;
             case 5:  addr = REG_GS_BASE; CHECK_READ_CONDITION_FOR_DATA(gs, pOp->addr); break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
         addr += pOp->addr;
         if(pOp->width){
@@ -418,7 +418,7 @@ uint32_t readOpl(struct stMachineState *pM, struct stOpl *pOp){
             case 5:  offset = PREFIX_AD32 ? REG_EBP : REG_BP; break;
             case 6:  offset = PREFIX_AD32 ? REG_ESI : REG_SI; break;
             case 7:  offset = PREFIX_AD32 ? REG_EDI : REG_DI; break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
         switch(pOp->reg){
             case 0:  addr = REG_ES_BASE+offset; CHECK_READ_CONDITION_FOR_DATA(es, offset); break;
@@ -427,7 +427,7 @@ uint32_t readOpl(struct stMachineState *pM, struct stOpl *pOp){
             case 3:  addr = REG_DS_BASE+offset; CHECK_READ_CONDITION_FOR_DATA(ds, offset); break;
             case 4:  addr = REG_FS_BASE+offset; CHECK_READ_CONDITION_FOR_DATA(fs, offset); break;
             case 5:  addr = REG_GS_BASE+offset; CHECK_READ_CONDITION_FOR_DATA(gs, offset); break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
         if(pOp->width){
             if( PREFIX_OP32 ){
@@ -465,7 +465,7 @@ void writeOpl(struct stMachineState *pM, struct stOpl *pOp, uint32_t val){
                 case 5:  if(pOp->width){ REG_EBP = val; }else{ REG_ECX = ((REG_ECX & 0xffff00ff) | ((val&0xff)<<8)); }; break;
                 case 6:  if(pOp->width){ REG_ESI = val; }else{ REG_EDX = ((REG_EDX & 0xffff00ff) | ((val&0xff)<<8)); }; break;
                 case 7:  if(pOp->width){ REG_EDI = val; }else{ REG_EBX = ((REG_EBX & 0xffff00ff) | ((val&0xff)<<8)); }; break;
-                default: printf("Invalid reg number \n");
+                default: PRINTF("Invalid reg number \n");
             }
         }else{
             switch(pOp->reg){
@@ -478,7 +478,7 @@ void writeOpl(struct stMachineState *pM, struct stOpl *pOp, uint32_t val){
                 case 5:  if(pOp->width){ REG_BP = val; }else{ REG_CX = ((REG_CX & 0x00ff) | ((val&0xff)<<8)); }; break;
                 case 6:  if(pOp->width){ REG_SI = val; }else{ REG_DX = ((REG_DX & 0x00ff) | ((val&0xff)<<8)); }; break;
                 case 7:  if(pOp->width){ REG_DI = val; }else{ REG_BX = ((REG_BX & 0x00ff) | ((val&0xff)<<8)); }; break;
-                default: printf("Invalid reg number \n");
+                default: PRINTF("Invalid reg number \n");
             }
         }
     }else if(pOp->type == OpTypeSegReg){
@@ -493,7 +493,7 @@ void writeOpl(struct stMachineState *pM, struct stOpl *pOp, uint32_t val){
                 case 3: REG_DS = val; loadDataSegmentDesc (pM, val, &(pM->reg.descc_ds)); break;
                 case 4: REG_FS = val; loadDataSegmentDesc (pM, val, &(pM->reg.descc_fs)); break;
                 case 5: REG_GS = val; loadDataSegmentDesc (pM, val, &(pM->reg.descc_gs)); break;
-                default: printf("Invalid reg number \n");
+                default: PRINTF("Invalid reg number \n");
             }
         }else{
             // real mode or VM86 mode
@@ -504,7 +504,7 @@ void writeOpl(struct stMachineState *pM, struct stOpl *pOp, uint32_t val){
                 case 3:  REG_DS = val; LOAD_DATA_DESCRIPTOR_IN_REAL(ds, val); break;
                 case 4:  REG_FS = val; LOAD_DATA_DESCRIPTOR_IN_REAL(fs, val); break;
                 case 5:  REG_GS = val; LOAD_DATA_DESCRIPTOR_IN_REAL(gs, val); break;
-                default: printf("Invalid reg number \n");
+                default: PRINTF("Invalid reg number \n");
             }
         }
     }else if(pOp->type == OpTypeMemWithSeg){
@@ -516,7 +516,7 @@ void writeOpl(struct stMachineState *pM, struct stOpl *pOp, uint32_t val){
             case 3:  addr = REG_DS_BASE; CHECK_WRITE_CONDITION_FOR_DATA(ds, pOp->addr); break;
             case 4:  addr = REG_FS_BASE; CHECK_WRITE_CONDITION_FOR_DATA(fs, pOp->addr); break;
             case 5:  addr = REG_GS_BASE; CHECK_WRITE_CONDITION_FOR_DATA(gs, pOp->addr); break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
         addr+= pOp->addr;
 
@@ -542,7 +542,7 @@ void writeOpl(struct stMachineState *pM, struct stOpl *pOp, uint32_t val){
             case 5:  offset = PREFIX_AD32 ? REG_EBP : REG_BP; break;
             case 6:  offset = PREFIX_AD32 ? REG_ESI : REG_SI; break;
             case 7:  offset = PREFIX_AD32 ? REG_EDI : REG_DI; break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
         switch(pOp->reg){
             case 0:  addr = REG_ES_BASE+offset; CHECK_WRITE_CONDITION_FOR_DATA(es, offset); break;
@@ -551,7 +551,7 @@ void writeOpl(struct stMachineState *pM, struct stOpl *pOp, uint32_t val){
             case 3:  addr = REG_DS_BASE+offset; CHECK_WRITE_CONDITION_FOR_DATA(ds, offset); break;
             case 4:  addr = REG_FS_BASE+offset; CHECK_WRITE_CONDITION_FOR_DATA(fs, offset); break;
             case 5:  addr = REG_GS_BASE+offset; CHECK_WRITE_CONDITION_FOR_DATA(gs, offset); break;
-            default: printf("Invalid reg number \n");
+            default: PRINTF("Invalid reg number \n");
         }
         if(pOp->width){
             if( PREFIX_OP32 ){

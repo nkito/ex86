@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "i8086.h"
 #include "terminal.h"
 
 const int fcolor[] = 
@@ -17,9 +18,9 @@ void termSetCharColor(enum terminalCharColor eCharColor){
     currentCharColor = eCharColor;
 
     if( IS_TERM_RGB_COLOR(eCharColor) ){
-        printf("\033[38;2;%d;%d;%dm", TERM_COLOR_R(eCharColor), TERM_COLOR_G(eCharColor), TERM_COLOR_B(eCharColor));
+        PRINTF("\033[38;2;%d;%d;%dm", TERM_COLOR_R(eCharColor), TERM_COLOR_G(eCharColor), TERM_COLOR_B(eCharColor));
     }else{
-        printf("\033[%dm", eCharColor);
+        PRINTF("\033[%dm", eCharColor);
     }
 }
 void termSetBGColor(enum terminalBGColor eBGColor){
@@ -28,9 +29,9 @@ void termSetBGColor(enum terminalBGColor eBGColor){
     currentBGColor = eBGColor;
 
     if( IS_TERM_RGB_COLOR(eBGColor) ){
-        printf("\033[48;2;%d;%d;%dm", TERM_COLOR_R(eBGColor), TERM_COLOR_G(eBGColor), TERM_COLOR_B(eBGColor));
+        PRINTF("\033[48;2;%d;%d;%dm", TERM_COLOR_R(eBGColor), TERM_COLOR_G(eBGColor), TERM_COLOR_B(eBGColor));
     }else{
-        printf("\033[%dm", eBGColor);
+        PRINTF("\033[%dm", eBGColor);
     }
 }
 
@@ -38,36 +39,36 @@ void termResetColor(void){
     currentCharColor   = -1;
     currentBGColor = -1;
 
-    printf("\033[39m");
-    printf("\033[49m");
+    PRINTF("\033[39m");
+    PRINTF("\033[49m");
 }
 
 void termSetBlinkOff(void){
-    printf("\033[?25l"); // turn blaning off
+    PRINTF("\033[?25l"); // turn blaning off
 }
 void termResetBlink(void){
-    printf("\033[?25h");
+    PRINTF("\033[?25h");
 }
 
 void termGoTo(int x, int y){
     if(x<=0) x=1;
     if(y<=0) y=1;
-    printf("\033[%d;%dH", y, x);
+    PRINTF("\033[%d;%dH", y, x);
 }
 
 void termClear(void){
-    printf("\033[2J");
+    PRINTF("\033[2J");
 }
 
 void termResetSettingForExit(void){
     // set cursor position
-    printf("\033[%d;%dH", 25, 1);
+    PRINTF("\033[%d;%dH", 25, 1);
 
     // reset terminal color
-    printf("\033[39m");
-    printf("\033[49m");
+    PRINTF("\033[39m");
+    PRINTF("\033[49m");
 
     // reset blinking
-    printf("\033[?25h");
+    PRINTF("\033[?25h");
 }
 

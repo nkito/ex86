@@ -14,13 +14,13 @@
 
 
 uint32_t readFLAGS(struct stMachineState *pM){
-    if( pM->emu.emu_cpu == EMU_CPU_8086 || pM->emu.emu_cpu == EMU_CPU_80186 ){
+    if( pM->pEmu->emu_cpu == EMU_CPU_8086 || pM->pEmu->emu_cpu == EMU_CPU_80186 ){
         return (0xf000 | (REG_FLAGS));
-    }else if( pM->emu.emu_cpu == EMU_CPU_80286 ){
+    }else if( pM->pEmu->emu_cpu == EMU_CPU_80286 ){
         return (0x0fd7 & (REG_FLAGS));
     }else{
         if( PREFIX_OP32 ){
-            if( pM->emu.emu_cpu == EMU_CPU_80386 ){
+            if( pM->pEmu->emu_cpu == EMU_CPU_80386 ){
                 return ((0x00037fd7 & (REG_EFLAGS)) | 2);
             }else{
                 return ((0x00077fd7 & (REG_EFLAGS)) | 2);
@@ -79,7 +79,6 @@ void enterINT32(struct stMachineState *pM, uint16_t int_num, uint16_t cs, uint32
         case SYSDESC_TYPE_TASKGATE:
             // TODO: Task gate processing
             logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is type 0x%x  (CS:EIP %x:%x)\n", int_num, (GD.access & 0x0f), pM->reg.current_cs, pM->reg.current_eip);
-            printf("Task gate is not implemented\n");
         default:
         /*
             logfile_printf((LOGCAT_CPU_EXE | LOGLV_ERROR), "Error : intterupt descriptor for int 0x%x is type 0x%x  (CS:EIP %x:%x)\n", int_num, (GD.access & 0x0f), pM->reg.current_cs, pM->reg.current_eip);
@@ -317,7 +316,7 @@ int exHLT(struct stMachineState *pM, uint32_t pointer){
         ENTER_GP(0);
     }
 
-    if( pM->emu.emu_cpu < EMU_CPU_80286 ){
+    if( pM->pEmu->emu_cpu < EMU_CPU_80286 ){
         return EX_RESULT_UNKNOWN;  // stop the processor
     }else{
         return EX_RESULT_SUCCESS;
@@ -452,7 +451,7 @@ int exPUSH(struct stMachineState *pM, uint32_t pointer){
         decode_reg1(pM, pointer+0, INST_W_WORDACC, &op);
     }else if( (inst0&0xe7) == 0x06 ){
         decode_segReg(pM, pointer+0, &op);
-    }else if( inst0 == 0x0f && (inst1 & 0xf7) == 0xa0 && pM->emu.emu_cpu >= EMU_CPU_80386 ){
+    }else if( inst0 == 0x0f && (inst1 & 0xf7) == 0xa0 && pM->pEmu->emu_cpu >= EMU_CPU_80386 ){
         decode_segReg3bit(pM, pointer+1, &op);
         size++;
     }else{
@@ -499,11 +498,11 @@ int exPOP(struct stMachineState *pM, uint32_t pointer){
         size = decode_mod_rm(pM,  pointer+1, INST_W_WORDACC, &op);
     }else if( (inst0&0xf8) == 0x58 ){
         decode_reg1(pM, pointer+0, INST_W_WORDACC, &op);
-    }else if( (inst0&0xe7) == 0x07 && !(inst0 == 0x0f && pM->emu.emu_cpu >= EMU_CPU_80186) ){
+    }else if( (inst0&0xe7) == 0x07 && !(inst0 == 0x0f && pM->pEmu->emu_cpu >= EMU_CPU_80186) ){
         // POP a segment register
         // NOTE: "POP CS" is available before 80186
         decode_segReg(pM, pointer+0, &op);
-    }else if( inst0 == 0x0f && (inst1 & 0xf7) == 0xa1 && pM->emu.emu_cpu >= EMU_CPU_80386 ){
+    }else if( inst0 == 0x0f && (inst1 & 0xf7) == 0xa1 && pM->pEmu->emu_cpu >= EMU_CPU_80386 ){
         // POP FS, POP GS
         decode_segReg3bit(pM, pointer+1, &op);
         size++;
@@ -1342,7 +1341,7 @@ int exDIV(struct stMachineState *pM, uint32_t pointer){
         if( (INST_W_BIT != 0 && quou > 0xffff) || 
             (INST_W_BIT == 0 && quou > 0xff) ){
             // overflow
-            if( pM->emu.emu_cpu == EMU_CPU_8086 ){
+            if( pM->pEmu->emu_cpu == EMU_CPU_8086 ){
                 // i8086 pushes the address of the next instruction.
                 // See: https://stackoverflow.com/questions/71070990/x86-division-exception-return-address
                 enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP, 0);
@@ -1367,7 +1366,7 @@ int exDIV(struct stMachineState *pM, uint32_t pointer){
             (INST_W_BIT == 0 && quos > 0 && quos > 0x7f) ||
             (INST_W_BIT == 0 && quos < 0 && quos <-0x80) ){
             // overflow
-            if( pM->emu.emu_cpu == EMU_CPU_8086 ){
+            if( pM->pEmu->emu_cpu == EMU_CPU_8086 ){
                 // i8086 pushes the address of the next instruction.
                 // See: https://stackoverflow.com/questions/71070990/x86-division-exception-return-address
                 enterINT(pM,  INTNUM_DIVIDE_ERROR, REG_CS, REG_IP, 0);
@@ -1610,7 +1609,7 @@ int exShift(struct stMachineState *pM, uint32_t pointer){
 
     uint32_t msb_pat, op_mask;
 
-    if( pM->emu.emu_cpu >= EMU_CPU_80386){ // TODO: check the border
+    if( pM->pEmu->emu_cpu >= EMU_CPU_80386){ // TODO: check the border
         shamt &= 0x1f; 
     }
 
@@ -1963,7 +1962,7 @@ int exStringInst(struct stMachineState *pM, uint32_t pointer){
 static int exCALL_interSegment(struct stMachineState *pM, uint32_t pointer, uint32_t seg, uint32_t offset, uint32_t next_eip){
     uint8_t access;
 
-    if( (pM->emu.emu_cpu < EMU_CPU_80286) || (!MODE_PROTECTED32) ){
+    if( (pM->pEmu->emu_cpu < EMU_CPU_80286) || (!MODE_PROTECTED32) ){
         if(PREFIX_OP32){ 
             PUSH_TO_STACK( REG_CS  );
             PUSH_TO_STACK( REG_EIP ); 
@@ -2217,7 +2216,7 @@ static int exJMP_interSegment(struct stMachineState *pM, uint32_t pointer, uint3
         REG_EIP = (offset & 0xffff);
     }
 
-    if( pM->emu.emu_cpu >= EMU_CPU_80286 && MODE_PROTECTED32 ){
+    if( pM->pEmu->emu_cpu >= EMU_CPU_80286 && MODE_PROTECTED32 ){
         if( ! getDescType(pM, seg, &access) ){
             ENTER_GP( ECODE_SEGMENT_GDT_LDT(seg) );
         }
@@ -2421,7 +2420,7 @@ int exCondJump(struct stMachineState *pM, uint32_t pointer){
         cond = (inst0 & 0x0f);
     }else{
         uint16_t inst1 = pM->reg.fetchCache[1];
-        if( inst0 == 0x0f && (inst1 & 0xf0) == 0x80 && pM->emu.emu_cpu >= EMU_CPU_80386 ){
+        if( inst0 == 0x0f && (inst1 & 0xf0) == 0x80 && pM->pEmu->emu_cpu >= EMU_CPU_80386 ){
             size = decode_imm(pM, pointer+2, INST_W_WORDACC, &val, INST_S_NOSIGNEX);
             UPDATE_IP(2 + size);
             cond = (inst1 & 0x0f);

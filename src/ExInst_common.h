@@ -88,31 +88,31 @@
 #define ENTER_UD  do{                           \
     pM->reg.error_code  = 0;                    \
     pM->reg.fault      |= (1<<INTNUM_UDOPCODE); \
-    siglongjmp(pM->emu.env, -1);                \
+    siglongjmp(pM->reg.env, -1);                \
 }while(0)
 
 #define ENTER_GP(ecode) do{                    \
     pM->reg.error_code  = ecode;               \
     pM->reg.fault      |= (1<<FAULTNUM_GP);    \
-    siglongjmp(pM->emu.env, -1);               \
+    siglongjmp(pM->reg.env, -1);               \
 }while(0)
 
 #define ENTER_SS(ecode) do{                         \
     pM->reg.error_code  = ecode;                    \
     pM->reg.fault      |= (1<<FAULTNUM_STACKFAULT); \
-    siglongjmp(pM->emu.env, -1);                    \
+    siglongjmp(pM->reg.env, -1);                    \
 }while(0)
 
 #define ENTER_NP(ecode) do{                         \
     pM->reg.error_code  = ecode;                    \
     pM->reg.fault      |= (1<<FAULTNUM_SEGNOTP);    \
-    siglongjmp(pM->emu.env, -1);                    \
+    siglongjmp(pM->reg.env, -1);                    \
 }while(0)
 
 #define ENTER_TS(ecode) do{                         \
     pM->reg.error_code  = ecode;                    \
     pM->reg.fault      |= (1<<FAULTNUM_INVALIDTSS); \
-    siglongjmp(pM->emu.env, -1);                    \
+    siglongjmp(pM->reg.env, -1);                    \
 }while(0)
 //------------------------------------------------------------
 
@@ -140,7 +140,7 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
         }                                                                                         \
     }                                                                                             \
     if(! pM->prefix.data32){                                                                      \
-        if( pM->emu.emu_cpu == EMU_CPU_8086 || pM->emu.emu_cpu == EMU_CPU_80186 ){                \
+        if( pM->pEmu->emu_cpu == EMU_CPU_8086 || pM->pEmu->emu_cpu == EMU_CPU_80186 ){            \
             REG_SP-=2;                                                                            \
             writeDataMemWord(pM, REG_SS_BASE+ REG_SP, (x));                                       \
         }else{                                                                                    \
@@ -166,7 +166,7 @@ logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "%s: access violation in writing se
         }                                                                                         \
     }                                                                                             \
     if(! pM->prefix.data32){                                                                      \
-        if( pM->emu.emu_cpu == EMU_CPU_8086 || pM->emu.emu_cpu == EMU_CPU_80186 ){                \
+        if( pM->pEmu->emu_cpu == EMU_CPU_8086 || pM->pEmu->emu_cpu == EMU_CPU_80186 ){            \
             (x) = readDataMemWord(pM, REG_SS_BASE + REG_SP);                                      \
             REG_SP+=2;                                                                            \
         }else{                                                                                    \
