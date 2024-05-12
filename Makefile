@@ -23,6 +23,7 @@ SOURCES = \
 	descriptor.c \
 	mainloop16.c \
 	mainloop32.c \
+	env_unix.c \
 	i8086.c
 
 TARGET    = ex86
