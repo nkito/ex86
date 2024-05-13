@@ -208,8 +208,9 @@ void mainloop32_inner(struct stMachineState *pM){
 		pM->reg.current_eflags= REG_EFLAGS;
         pM->reg.fault = 0;
 
-        pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
-        pM->reg.fetchCache[1] = fetchCodeDataByte(pM, pointer+1);
+        uint16_t instWord = fetchCodeDataWord(pM, pointer);
+        pM->reg.fetchCache[0] = ( instWord     & 0xff);
+        pM->reg.fetchCache[1] = ((instWord>>8) & 0xff);
 
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");

@@ -185,8 +185,6 @@ void mainloop16(struct stMachineState *pM){
         prevSIGINTtime = getTimeInMs(pM);
     }
 
-    PREFIX_AD32 = 0;
-    PREFIX_OP32 = 0;
     while( (stop == 0 || (stop > 0 && stop >= nExecInsts)) ){
 
         // Checking the SIGINT status, treatment of Ctrl+C.
@@ -204,15 +202,21 @@ void mainloop16(struct stMachineState *pM){
             prevSIGINTtime = currentSIGINTtime;
         }
 
+        PREFIX_SEG  = PREF_SEG_UNSPECIFIED;
+        PREFIX_REPZ = PREF_REP_UNSPECIFIED;
+        PREFIX_AD32 = 0;
+        PREFIX_OP32 = 0;
+
         pointer = MEMADDR(REG_CS, REG_IP);
         pM->reg.current_cs  = REG_CS;    // To save the instruction pointer including prefix
         pM->reg.current_eip = REG_IP;    // To save the instruction pointer including prefix
+        pM->reg.current_esp = REG_ESP;   // To save the stack pointer to recover from incomplete execution of an instruction when a fault occurs during the execution. See "enterINTwithECODE"
+		pM->reg.current_eflags= REG_EFLAGS;
+        pM->reg.fault = 0;
 
-        PREFIX_SEG  = PREF_SEG_UNSPECIFIED;
-        PREFIX_REPZ = PREF_REP_UNSPECIFIED;
-
-        pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
-        pM->reg.fetchCache[1] = fetchCodeDataByte(pM, pointer + 1);
+        uint16_t instWord = fetchCodeDataWord(pM, pointer);
+        pM->reg.fetchCache[0] = ( instWord     & 0xff);
+        pM->reg.fetchCache[1] = ((instWord>>8) & 0xff);
 
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
