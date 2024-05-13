@@ -211,7 +211,7 @@ void mainloop16(struct stMachineState *pM){
         pM->reg.current_cs  = REG_CS;    // To save the instruction pointer including prefix
         pM->reg.current_eip = REG_IP;    // To save the instruction pointer including prefix
         pM->reg.current_esp = REG_ESP;   // To save the stack pointer to recover from incomplete execution of an instruction when a fault occurs during the execution. See "enterINTwithECODE"
-		pM->reg.current_eflags= REG_EFLAGS;
+        pM->reg.current_eflags= REG_EFLAGS;
         pM->reg.fault = 0;
 
         uint16_t instWord = fetchCodeDataWord(pM, pointer);

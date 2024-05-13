@@ -198,7 +198,7 @@ struct stReg{
     uint32_t current_eip;
     uint16_t current_cs;
     uint32_t current_esp;
-	uint32_t current_eflags;
+    uint32_t current_eflags;
     uint8_t fetchCache[2];
 
     sigjmp_buf env;
