@@ -192,7 +192,7 @@ fault_pf:
     if( pM->reg.fault ){
         logfile_printf(LOGCAT_CPU_MEM | LOGLV_NOTICE, "L2P (CR3: %x, dir: %x, pde:%x, ptable: %x, pte:%x) %x -> %x\n", 
         pM->reg.cr[3], dir, pde, ptable, pte, linear, paddr);
-        siglongjmp(pM->reg.env, -1);
+        LONGJMP(pM->reg.env, -1);
         pM->reg.fault = 0;
     }
     return paddr;
@@ -267,6 +267,9 @@ uint16_t fetchCodeDataWord(struct stMachineState *pM, uint32_t addr){
 }
 
 uint8_t fetchCodeDataByte(struct stMachineState *pM, uint32_t addr){
+    if( (pM->reg.fetchCacheBase <= addr) && (addr < pM->reg.fetchCacheBase + FETCH_CACHE_SIZE) && (addr != FETCH_CACHE_BASE_INVALID) ){
+        return pM->reg.fetchCache[ addr - pM->reg.fetchCacheBase ];
+    }
     if( MODE_PROTECTED32 && (addr < (REG_CS_BASE+pM->reg.descc_cs.limit_min) || addr > (REG_CS_BASE+pM->reg.descc_cs.limit_max)) ){
         logfile_printf(LOGCAT_CPU_MEM | LOGLV_ERROR, "access violation in code fetch at 0x%x. Segment offset min %x max %x (CS:EIP=%x:%x pointer %x)\n", 
         addr, pM->reg.descc_cs.limit_min, pM->reg.descc_cs.limit_max, REG_CS, REG_EIP, REG_CS_BASE+REG_EIP);

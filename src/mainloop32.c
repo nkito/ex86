@@ -42,6 +42,8 @@ int prefixCheck(struct stMachineState *pM, uint32_t *pPointer){
 
         pM->reg.fetchCache[0] = pM->reg.fetchCache[1];
         pM->reg.fetchCache[1] = fetchCodeDataByte(pM, (*pPointer)+1);
+        pM->reg.fetchCacheBase++;
+
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_INFO, "REP prefix (z: %x)\n", PREFIX_REPZ);
             logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", *pPointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
@@ -56,6 +58,8 @@ int prefixCheck(struct stMachineState *pM, uint32_t *pPointer){
 
         pM->reg.fetchCache[0] = pM->reg.fetchCache[1];
         pM->reg.fetchCache[1] = fetchCodeDataByte(pM, (*pPointer)+1);
+        pM->reg.fetchCacheBase++;
+
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_INFO3, "Address-size Prefix\n");
             logfile_printf(LOGLEVEL_EMU_INFO3, "new pointer: %05x  insts = %02x, %02x \n", *pPointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
@@ -70,6 +74,7 @@ int prefixCheck(struct stMachineState *pM, uint32_t *pPointer){
 
         pM->reg.fetchCache[0] = pM->reg.fetchCache[1];
         pM->reg.fetchCache[1] = fetchCodeDataByte(pM, (*pPointer)+1);
+        pM->reg.fetchCacheBase++;
 
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_INFO, "Operand-size prefix\n");
@@ -86,6 +91,8 @@ int prefixCheck(struct stMachineState *pM, uint32_t *pPointer){
 
         pM->reg.fetchCache[0] = pM->reg.fetchCache[1];
         pM->reg.fetchCache[1] = fetchCodeDataByte(pM, (*pPointer)+1);
+        pM->reg.fetchCacheBase++;
+
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_INFO, "Segment prefix: %x\n", PREFIX_SEG);
             logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", *pPointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
@@ -100,6 +107,8 @@ int prefixCheck(struct stMachineState *pM, uint32_t *pPointer){
 
         pM->reg.fetchCache[0] = pM->reg.fetchCache[1];
         pM->reg.fetchCache[1] = fetchCodeDataByte(pM, (*pPointer)+1);
+        pM->reg.fetchCacheBase++;
+
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_INFO, "Segment prefix: %x\n", PREFIX_SEG);
             logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", *pPointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
@@ -114,6 +123,8 @@ int prefixCheck(struct stMachineState *pM, uint32_t *pPointer){
 
         pM->reg.fetchCache[0] = pM->reg.fetchCache[1];
         pM->reg.fetchCache[1] = fetchCodeDataByte(pM, (*pPointer)+1);
+        pM->reg.fetchCacheBase++;
+
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_INFO, "LOCK prefix\n");
             logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", *pPointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
@@ -132,7 +143,7 @@ void mainloop32(struct stMachineState *pM){
     pM->pEmu->stop       = 0;
 
     do{
-        if ( sigsetjmp(pM->reg.env, 1) != 0 ) {
+        if ( SETJMP(pM->reg.env) != 0 ) {
             if( pM->reg.fault & (1<<FAULTNUM_PAGEFAULT) ){
                 logfile_printf(LOGLEVEL_EMU_INFO3, "Page fault detected (error code: %x). CS:EIP=%x:%x (pointer %x)\n", pM->reg.error_code, pM->reg.current_cs, pM->reg.current_eip, REG_CS_BASE + pM->reg.current_eip);
             }else if( pM->reg.fault & (1<<FAULTNUM_GP) ){
@@ -211,6 +222,7 @@ void mainloop32_inner(struct stMachineState *pM){
         uint16_t instWord = fetchCodeDataWord(pM, pointer);
         pM->reg.fetchCache[0] = ( instWord     & 0xff);
         pM->reg.fetchCache[1] = ((instWord>>8) & 0xff);
+        pM->reg.fetchCacheBase = pointer;
 
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");

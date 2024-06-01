@@ -88,31 +88,31 @@
 #define ENTER_UD  do{                           \
     pM->reg.error_code  = 0;                    \
     pM->reg.fault      |= (1<<INTNUM_UDOPCODE); \
-    siglongjmp(pM->reg.env, -1);                \
+    LONGJMP(pM->reg.env, -1);                \
 }while(0)
 
 #define ENTER_GP(ecode) do{                    \
     pM->reg.error_code  = ecode;               \
     pM->reg.fault      |= (1<<FAULTNUM_GP);    \
-    siglongjmp(pM->reg.env, -1);               \
+    LONGJMP(pM->reg.env, -1);               \
 }while(0)
 
 #define ENTER_SS(ecode) do{                         \
     pM->reg.error_code  = ecode;                    \
     pM->reg.fault      |= (1<<FAULTNUM_STACKFAULT); \
-    siglongjmp(pM->reg.env, -1);                    \
+    LONGJMP(pM->reg.env, -1);                    \
 }while(0)
 
 #define ENTER_NP(ecode) do{                         \
     pM->reg.error_code  = ecode;                    \
     pM->reg.fault      |= (1<<FAULTNUM_SEGNOTP);    \
-    siglongjmp(pM->reg.env, -1);                    \
+    LONGJMP(pM->reg.env, -1);                    \
 }while(0)
 
 #define ENTER_TS(ecode) do{                         \
     pM->reg.error_code  = ecode;                    \
     pM->reg.fault      |= (1<<FAULTNUM_INVALIDTSS); \
-    siglongjmp(pM->reg.env, -1);                    \
+    LONGJMP(pM->reg.env, -1);                    \
 }while(0)
 //------------------------------------------------------------
 

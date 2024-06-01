@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <termios.h>
 #include <fcntl.h>
 #include <string.h>
 #include <signal.h>
@@ -45,6 +44,8 @@ int main(int argc, char *argv[]){
     ms.reg.cs            = 0xf000;
     ms.reg.descc_cs.base = 0xf0000;
     ms.reg.eflags        = 0x00000000;
+
+    ms.reg.fetchCacheBase= FETCH_CACHE_BASE_INVALID;
 
     ms.reg.descc_es.limit = ms.reg.descc_es.limit_max = 0xffff; ms.reg.descc_es.writable = 1;
     ms.reg.descc_cs.limit = ms.reg.descc_cs.limit_max = 0xffff; ms.reg.descc_cs.readable = 1;

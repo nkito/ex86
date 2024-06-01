@@ -179,6 +179,7 @@ void mainloop16(struct stMachineState *pM){
     pointer = MEMADDR(REG_CS, REG_IP);
     pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
     pM->reg.fetchCache[1] = fetchCodeDataByte(pM, pointer + 1);
+    pM->reg.fetchCacheBase= pointer;
 
     if( getIntFlag(pM) ){
         prev_eflag     = getIntFlag(pM);
@@ -217,6 +218,7 @@ void mainloop16(struct stMachineState *pM){
         uint16_t instWord = fetchCodeDataWord(pM, pointer);
         pM->reg.fetchCache[0] = ( instWord     & 0xff);
         pM->reg.fetchCache[1] = ((instWord>>8) & 0xff);
+        pM->reg.fetchCacheBase= pointer;
 
         if(DEBUG){
             logfile_printf(LOGLEVEL_EMU_NOTICE, "================================== \n");
@@ -255,6 +257,8 @@ void mainloop16(struct stMachineState *pM){
 
             pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
             pM->reg.fetchCache[1] = fetchCodeDataByte(pM, pointer + 1);
+            pM->reg.fetchCacheBase++;
+
             if(DEBUG){
                 logfile_printf(LOGLEVEL_EMU_INFO, "REP prefix (z: %x)\n", PREFIX_REPZ);
                 logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
@@ -268,6 +272,8 @@ void mainloop16(struct stMachineState *pM){
 
             pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
             pM->reg.fetchCache[1] = fetchCodeDataByte(pM, pointer + 1);
+            pM->reg.fetchCacheBase++;
+
             if(DEBUG){
                 logfile_printf(LOGLEVEL_EMU_INFO, "Segment prefix: %x\n", PREFIX_SEG);
                 logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);

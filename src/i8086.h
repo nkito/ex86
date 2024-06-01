@@ -112,6 +112,19 @@ FIRST_WORD_IDX_IN_DWORD should be defined so that
 #error "Please define HOST_BYTE_ORDER_LITTLE_ENDIAN or HOST_BYTE_ORDER_BIG_ENDIAN"
 #endif
 
+#if defined(USE_SIGLONG_JMP)
+#define JMP_BUF sigjmp_buf
+#define LONGJMP siglongjmp
+#define SETJMP(env)  sigsetjmp((env), 1)
+#else
+#define JMP_BUF jmp_buf
+#define LONGJMP longjmp
+#define SETJMP(env)  setjmp(env)
+#endif
+
+#define FETCH_CACHE_SIZE          2
+#define FETCH_CACHE_BASE_INVALID  (0xffffffff - FETCH_CACHE_SIZE)  /* This base address means that fetch cache is invalid  */
+
 struct stReg{
     union{
         uint32_t eax;
@@ -199,9 +212,11 @@ struct stReg{
     uint16_t current_cs;
     uint32_t current_esp;
     uint32_t current_eflags;
-    uint8_t fetchCache[2];
 
-    sigjmp_buf env;
+    uint8_t  fetchCache[FETCH_CACHE_SIZE];
+    uint32_t fetchCacheBase;
+
+    JMP_BUF env;
 };
 
 enum eOpType {

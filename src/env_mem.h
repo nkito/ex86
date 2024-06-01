@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define USE_SIGLONG_JMP
+
 struct stMemRegion {
     uint8_t *mem;
 };
