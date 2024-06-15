@@ -2562,7 +2562,7 @@ int exINT(struct stMachineState *pM, uint32_t pointer){
         decode_imm(pM, pointer+1, INST_W_BYTEACC, &val, INST_S_NOSIGNEX);
         UPDATE_IP(1);
     }
-    if(DEBUG) EXI_LOG_PRINTF("INT %x\n", val);
+    if(DEBUG) EXI_LOG_PRINTF("INT %x (AX=%x)\n", val, REG_AX);
 
     enterINT(pM, val, REG_CS, REG_EIP /*PREFIX_OP32 ? REG_EIP : REG_IP*/, 1);
     return EX_RESULT_SUCCESS;

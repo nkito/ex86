@@ -40,8 +40,6 @@ unsigned int int16_reg_ss2;
 "pop %cx\n" \
 "pop %ax\n" 
 
-unsigned int keybuf;
-int  keybuf_avail = 0;
 
 unsigned char convert_table[128] = {
 //     0     1     2     3     4     5     6     7     8     9     a     b     c     d     e     f
@@ -197,50 +195,41 @@ void int16_default_handler(void){
 
 
 void int16_handler_ah00(void){
-    if( keybuf_avail == 0 ){
-        do{
-            keybuf = getKeyCodeNonBlocking();
-        }while(keybuf == 0);
-    }
+	uint16_t keybuf;
+
+	do{
+		keybuf = getKeyCodeNonBlocking();
+	}while(keybuf == 0);
+
     int16_zf     = 0;
     int16_reg_ax = keybuf;
-    keybuf_avail = 0;
 }
 
 void int16_handler_ah10(void){
-    if( keybuf_avail == 0 ){
-        do{
-            keybuf = getKeyCodeNonBlocking();
-        }while(keybuf == 0);
-    }
+	uint16_t keybuf;
+
+	do{
+		keybuf = getKeyCodeNonBlocking();
+	}while(keybuf == 0);
 
     int16_zf     = 0;
     int16_reg_ax = keybuf;
-    keybuf_avail = 0;
 }
 
+unsigned int getNdKeyCodeNonBlocking(void);
+
 void int16_handler_ah01(void){
-    unsigned int c;
+	uint16_t keybuf = getNdKeyCodeNonBlocking();
 
-    if( (keybuf_avail == 0) && (0 != (c = getKeyCodeNonBlocking())) ){
-        keybuf = c;
-        keybuf_avail = 1;
-    }
-
-    int16_zf     = (keybuf_avail ? 0 : 1);
-    int16_reg_ax = (keybuf_avail ? keybuf : 0);
+    int16_zf     = (keybuf ? 0 : 1);
+    int16_reg_ax = keybuf;
 }
 
 void int16_handler_ah11(void){
-    unsigned int c;
+	uint16_t keybuf = getNdKeyCodeNonBlocking();
 
-    if( (keybuf_avail == 0) && (0 != (c = getKeyCodeNonBlocking())) ){
-        keybuf = c;
-        keybuf_avail = 1;
-    }
-
-    int16_zf     = (keybuf_avail ? 0 : 1);
-    int16_reg_ax = (keybuf_avail ? keybuf : 0);
+    int16_zf     = (keybuf ? 0 : 1);
+    int16_reg_ax = keybuf;
 }
 
 void int16_handler_ah02(void){
@@ -354,6 +343,19 @@ unsigned int getKeyBufItem(void){
 	return code;
 }
 
+// Non destructive read version
+unsigned int getNdKeyBufItem(void){
+	unsigned int KeyBufHead = *pKeyBufHead - KEYBUF_START;
+	unsigned int code;
+
+	code = pKeyBuf[KeyBufHead];
+	if( (code&0xff) == 0x1B ){	// ESC
+		if(++KeyBufHead >= KEYBUF_SIZE) KeyBufHead = 0;
+		code = pKeyBuf[KeyBufHead];
+	}
+
+	return code;
+}
 
 void updateKeyInput(void){
 	const int ESC_TIMEOUT = 100;
@@ -478,4 +480,10 @@ unsigned int getKeyCodeNonBlocking(void){
 	updateKeyInput();
 	if( isKeyBufEmpty() ) return 0;
 	return getKeyBufItem();
+}
+
+unsigned int getNdKeyCodeNonBlocking(void){
+	updateKeyInput();
+	if( isKeyBufEmpty() ) return 0;
+	return getNdKeyBufItem();
 }
