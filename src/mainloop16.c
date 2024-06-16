@@ -165,10 +165,65 @@ int emuMonitor16(struct stMachineState *pM){
     return result;
 }
 
+int prefixCheck16(struct stMachineState *pM, uint32_t *pPointer){
+    int nPrefix = 0;
+
+    if( (pM->reg.fetchCache[0] & 0xfe) == 0xf2 ){
+        // REP
+        PREFIX_REPZ = (pM->reg.fetchCache[0] & 1);
+        (*pPointer)++;
+        REG_IP++;
+
+        pM->reg.fetchCache[0] = pM->reg.fetchCache[1];
+        pM->reg.fetchCache[1] = fetchCodeDataByte(pM, (*pPointer)+1);
+        pM->reg.fetchCacheBase++;
+
+        if(DEBUG){
+            logfile_printf(LOGLEVEL_EMU_INFO, "REP prefix (z: %x)\n", PREFIX_REPZ);
+            logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", *pPointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
+        }
+        nPrefix++;
+    }
+    if( (pM->reg.fetchCache[0] & 0xe7 ) == 0x26 ){
+        // Segment Prefix 
+        PREFIX_SEG = ( (pM->reg.fetchCache[0] >> 3) & 3);
+        (*pPointer)++;
+        REG_IP++;
+
+        pM->reg.fetchCache[0] = pM->reg.fetchCache[1];
+        pM->reg.fetchCache[1] = fetchCodeDataByte(pM, (*pPointer)+1);
+        pM->reg.fetchCacheBase++;
+
+        if(DEBUG){
+            logfile_printf(LOGLEVEL_EMU_INFO, "Segment prefix: %x\n", PREFIX_SEG);
+            logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", *pPointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
+        }
+        nPrefix++;
+    }
+    if( pM->reg.fetchCache[0] == 0xf0 ){
+        // LOCK Prefix 
+        (*pPointer)++; 
+        REG_IP++;
+
+        pM->reg.fetchCache[0] = pM->reg.fetchCache[1];
+        pM->reg.fetchCache[1] = fetchCodeDataByte(pM, (*pPointer)+1);
+        pM->reg.fetchCacheBase++;
+
+        if(DEBUG){
+            logfile_printf(LOGLEVEL_EMU_INFO, "LOCK prefix\n");
+            logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", *pPointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
+        }
+        nPrefix++;
+    }
+
+    return nPrefix;
+}
+
 void mainloop16(struct stMachineState *pM){
     uint64_t nExecInsts = 0;
     int stop = 0;
     int result;
+    uint16_t saved_ss;
     uint16_t prev_flags;
     uint32_t pointer;
     int (*exFunc)(struct stMachineState *pM, uint32_t pointer);
@@ -207,6 +262,7 @@ void mainloop16(struct stMachineState *pM){
         PREFIX_REPZ = PREF_REP_UNSPECIFIED;
         PREFIX_AD32 = 0;
         PREFIX_OP32 = 0;
+        saved_ss = REG_SS;
 
         pointer = MEMADDR(REG_CS, REG_IP);
         pM->reg.current_cs  = REG_CS;    // To save the instruction pointer including prefix
@@ -235,57 +291,20 @@ void mainloop16(struct stMachineState *pM){
             stop = nExecInsts + pM->pEmu->runAfterBreak;
         }
 
-        /*
-        if( (inst0 & 0xe7 ) == 0x26 ){
-            // Segment Prefix
-            seg = ( (inst0 >> 3) & 3);
-            pointer++; (*reg.p_ip)++;
-
-            inst0 = fetchCodeDataByte(&mem, pointer);
-            inst1 = fetchCodeDataByte(&mem, pointer+1);
-            if(DEBUG){
-                logfile_printf(LOGLEVEL_INFO, "Segment prefix: %x\n", seg);
-                logfile_printf(LOGLEVEL_INFO, "new pointer: %05x  insts = %02x, %02x \n", pointer, inst0, inst1);
-            }
-        }
-        */
-        if( (pM->reg.fetchCache[0] & 0xfe) == 0xf2 ){
-            // REP
-            PREFIX_REPZ = (pM->reg.fetchCache[0] & 1);
-            pointer++;
-            REG_IP++;
-
-            pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
-            pM->reg.fetchCache[1] = fetchCodeDataByte(pM, pointer + 1);
-            pM->reg.fetchCacheBase++;
-
-            if(DEBUG){
-                logfile_printf(LOGLEVEL_EMU_INFO, "REP prefix (z: %x)\n", PREFIX_REPZ);
-                logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
-            }
-        }
-        if( (pM->reg.fetchCache[0] & 0xe7) == 0x26 ){
-            // Segment Prefix
-            PREFIX_SEG = ((pM->reg.fetchCache[0] >> 3) & 3);
-            pointer++;
-            REG_IP++;
-
-            pM->reg.fetchCache[0] = fetchCodeDataByte(pM, pointer);
-            pM->reg.fetchCache[1] = fetchCodeDataByte(pM, pointer + 1);
-            pM->reg.fetchCacheBase++;
-
-            if(DEBUG){
-                logfile_printf(LOGLEVEL_EMU_INFO, "Segment prefix: %x\n", PREFIX_SEG);
-                logfile_printf(LOGLEVEL_EMU_INFO, "new pointer: %05x  insts = %02x, %02x \n", pointer, pM->reg.fetchCache[0], pM->reg.fetchCache[1]);
-            }
-        }
-
         saveInstPointer(pointer);
 
         // table lookup of the processing function for the instruction
         if( pM->pEmu->emu_cpu == EMU_CPU_8086 ){
+            // table lookup of the processing function for the instruction
+            while( (exFunc = instCodeFunc8086[pM->reg.fetchCache[0]]) == exPrefixDummy ){
+                prefixCheck16(pM, &pointer);
+            }
             exFunc = instCodeFunc8086[pM->reg.fetchCache[0]];
         }else if( pM->pEmu->emu_cpu == EMU_CPU_80186 ){
+            // table lookup of the processing function for the instruction
+            while( (exFunc = instCodeFunc80186[pM->reg.fetchCache[0]]) == exPrefixDummy ){
+                prefixCheck16(pM, &pointer);
+            }
             exFunc = instCodeFunc80186[pM->reg.fetchCache[0]];
         }else{
             exFunc = 0;
@@ -324,14 +343,21 @@ void mainloop16(struct stMachineState *pM){
             goto mainloop16_exit;
         }
 
-        if( prev_flags & REG_FLAGS & (1 << FLAGS_BIT_TF) ){
+        if( saved_ss != REG_SS && (exFunc == exMov || exFunc == exPOP) ){
+            // do not process interrupts after "mov ss" or "pop ss" instruction
+            // to prevent inconsistency of ss and (e)sp in following code
+            //
+            // mov ss, ...
+            // mov sp, ...
+        }else if( prev_flags & REG_FLAGS & (1 << FLAGS_BIT_TF) ){
             enterINT(pM, 1, REG_CS, REG_IP, 0);
-        }else if( (nExecInsts & 0x0f) == 0 && pM->pMemIo->ioTimer.counter[0] != 0 && ((REG_FLAGS & (1 << FLAGS_BIT_IF)) != 0) ){
-            if( getTimerFlag(pM) ){
+        
+        }else if( REG_FLAGS & (1<<FLAGS_BIT_IF) ){
+            if( pM->pMemIo->ioTimer.counter[0] != 0 && 0 == ((pM->pMemIo->ioPICmain.ocw1) & 1) && getTimerFlag(pM) ){
                 resetTimerFlag(pM);
-                enterINT(pM, 0x08, REG_CS, REG_IP, 0);
-
-                // resetTimerCounter(0);
+                if( ! DEBUG ){
+                    enterINT(pM, (pM->pMemIo->ioPICmain.icw2)&0xf8, REG_CS, REG_EIP, 0);
+                }
             }
         }
 
