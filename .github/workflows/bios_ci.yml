@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: apt setup
       run: sudo add-apt-repository ppa:tkchia/build-ia16
     - name: apt update
