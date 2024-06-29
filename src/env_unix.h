@@ -35,5 +35,6 @@ size_t writeDriveSector(struct stMachineState *pM, int driveNum, int sect, uint8
 size_t readHostFile (struct stMachineState *pM, char *file, size_t offset, size_t len, uint8_t *buf);
 size_t writeHostFile(struct stMachineState *pM, char *file, char *mode, size_t len, uint8_t *buf);
 
+void setSystemTime(struct stMachineState *pM, struct tm *pT);
 
 #endif

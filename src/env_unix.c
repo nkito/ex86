@@ -331,3 +331,7 @@ size_t writeHostFile(struct stMachineState *pM, char *file, char *mode, size_t l
 
     return count;
 }
+
+void setSystemTime(struct stMachineState *pM, struct tm *pT){
+    // do nothing
+}
